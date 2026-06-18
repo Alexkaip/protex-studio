@@ -1,0 +1,8 @@
+-- Protex Studio v17 Preisfelder
+-- In Supabase > SQL Editor einfügen und auf Run klicken.
+
+alter table products
+add column if not exists print_price_element numeric default 5,
+add column if not exists min_qty integer default 1,
+add column if not exists discount_20 numeric default 0,
+add column if not exists discount_50 numeric default 0;
