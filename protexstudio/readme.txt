@@ -1,13 +1,12 @@
-PROTEX Projekt v21 - Originalgrafiken, Texte, großer Desktop
+PROTEX Projekt v22 - Handy Steuerung + mehr Schriftarten
 
-Korrekturen:
-- Löschen bei Anfragen bleibt direkt bei der Anfrage.
-- Original hochgeladene Grafiken werden zusätzlich pro Produkt in der Anfrage gespeichert.
-- SVG/PNG/JPG können im Admin als Originaldatei heruntergeladen werden.
-- Texte aus dem Konfigurator werden im Admin in der Anfrage angezeigt.
-- Produktbild am Desktop stärker vergrößert.
-- Rechte Konfigurator-Spalte am Desktop scrollbar.
+Neu:
+- Mehr Schriftarten im Konfigurator: Bebas Neue, Oswald, Montserrat, Poppins, Anton, Teko, Rajdhani, Orbitron, Permanent Marker, Pacifico, Lobster, Bangers usw.
+- Handy-Feinsteuerung für ausgewählte Logos/Texte: hoch, runter, links, rechts, Mitte, kleiner, größer.
+- Größere Anfasser am Handy.
+- Alle bisherigen Funktionen bleiben: Kategorien, Anfragen im Admin, Löschen, Originalgrafiken, Texte/Schriftinfos, Layoutbilder.
 
 Wichtig:
-Dateien in den von Vercel verwendeten Ordner hochladen, bei dir: protexstudio.
-SQL ist nur nötig, wenn Löschen nicht funktioniert oder die Tabellen fehlen.
+- Dateien in GitHub in den richtigen Ordner protexstudio hochladen/ersetzen.
+- Vercel Deployment abwarten bis Ready.
+- Danach Browser mit STRG+F5 neu laden.

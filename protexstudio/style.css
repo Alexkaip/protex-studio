@@ -107,3 +107,20 @@ input[type=file]{width:100%;border:1px dashed #e2e8f0;background:#f8fafc;border-
   #product-img{max-width:100%;max-height:calc(100vh - 100px);transform:scale(1.45);transform-origin:center center}
   #configurator-screen > aside.card{position:sticky;top:10px;max-height:calc(100vh - 20px);overflow-y:auto;scrollbar-width:thin}
 }
+
+
+/* V22: Handy-Feinsteuerung + größere Touch-Flächen */
+.mobile-edit-controls{background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:10px;margin:10px 0;display:grid;gap:8px}
+.move-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:260px;margin:0 auto}
+.control-btn{border:1px solid var(--border);background:#fff;border-radius:10px;padding:11px 8px;font-weight:900;cursor:pointer;min-height:44px}
+.control-btn:active{background:#eff6ff;border-color:#93c5fd}
+.control-btn.empty{opacity:0;background:transparent;border:none;cursor:default}
+.compact-controls{margin-bottom:0}
+@media(max-width:900px){
+  .design-item{padding:14px}
+  .design-item .resizer{width:34px;height:34px;right:-17px;bottom:-17px}
+  .mobile-edit-controls{position:relative;z-index:20}
+}
+@media(min-width:901px){
+  .mobile-edit-controls{display:none}
+}

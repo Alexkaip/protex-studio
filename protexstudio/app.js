@@ -57,6 +57,13 @@ function bindEvents(){
   document.getElementById("add-text-btn").addEventListener("click",addTextItem);
   document.getElementById("delete-selected-btn").addEventListener("click",deleteSelectedItem);
   document.getElementById("reset-side-btn").addEventListener("click",resetCurrentSide);
+  bindOptional("move-up-btn",()=>moveSelected(0,-1));
+  bindOptional("move-down-btn",()=>moveSelected(0,1));
+  bindOptional("move-left-btn",()=>moveSelected(-1,0));
+  bindOptional("move-right-btn",()=>moveSelected(1,0));
+  bindOptional("size-minus-btn",()=>resizeSelected(-1));
+  bindOptional("size-plus-btn",()=>resizeSelected(1));
+  bindOptional("center-h-btn",centerSelectedHorizontal);
   document.getElementById("add-request-btn").addEventListener("click",addCurrentProductToRequest);
   document.getElementById("download-design-btn").addEventListener("click",downloadAllRequestDesignImages);
   document.getElementById("send-order-btn").addEventListener("click",sendOrder);
@@ -68,6 +75,11 @@ function bindEvents(){
       renderDesignItems();
     }
   });
+}
+
+function bindOptional(id,fn){
+  const el=document.getElementById(id);
+  if(el)el.addEventListener("click",fn);
 }
 
 async function loadProducts(){
@@ -436,6 +448,36 @@ function moveDrag(e){
 function endDrag(){dragState=null;}
 
 function getCurrentItems(){return designState[currentSide]||[];}
+
+function getSelectedDesignItem(){
+  if(!selectedItemId)return null;
+  return getCurrentItems().find(i=>i.id===selectedItemId)||null;
+}
+
+function moveSelected(dx,dy){
+  const item=getSelectedDesignItem();
+  if(!item){alert("Bitte zuerst Text oder Logo anklicken.");return;}
+  const rect=pImg.getBoundingClientRect();
+  const step=8;
+  item.relX=Math.max(0,Math.min(.95,item.relX+(dx*step)/(rect.width||800)));
+  item.relY=Math.max(0,Math.min(.95,item.relY+(dy*step)/(rect.height||800)));
+  renderDesignItems();
+}
+
+function resizeSelected(direction){
+  const item=getSelectedDesignItem();
+  if(!item){alert("Bitte zuerst Text oder Logo anklicken.");return;}
+  item.relW=Math.max(.04,Math.min(.9,item.relW+(direction*.015)));
+  if(item.type==="text")item.fontSize=Math.max(10,(item.fontSize||32)+(direction*2));
+  renderDesignItems();
+}
+
+function centerSelectedHorizontal(){
+  const item=getSelectedDesignItem();
+  if(!item){alert("Bitte zuerst Text oder Logo anklicken.");return;}
+  item.relX=Math.max(0,Math.min(.95,.5-(item.relW||.2)/2));
+  renderDesignItems();
+}
 
 function cloneState(obj){return JSON.parse(JSON.stringify(obj));}
 
