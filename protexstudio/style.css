@@ -72,3 +72,13 @@ input[type=file]{width:100%;border:1px dashed #e2e8f0;background:#f8fafc;border-
   .start-category-img,.start-product-img{height:120px}
 }
 @media(max-width:520px){.start-category-grid,.start-product-grid{grid-template-columns:1fr}}
+
+/* V18 Admin Anfragen */
+.admin-request-list{display:grid;gap:8px;margin:10px 0}
+.admin-request-row{display:flex;justify-content:space-between;gap:10px;align-items:center;border:1px solid var(--border);background:#fff;border-radius:12px;padding:10px;cursor:pointer}
+.admin-request-row:hover{background:#eff6ff;border-color:#93c5fd}
+.request-status{background:#dcfce7;color:#166534;border-radius:999px;padding:5px 9px;font-weight:900;font-size:.8rem;white-space:nowrap}
+.admin-request-detail{margin-top:10px;max-height:520px;overflow:auto}
+.admin-request-detail h3{margin:12px 0 6px;font-size:1rem}
+.request-detail-item{border:1px solid var(--border);border-radius:10px;background:#fff;padding:10px;margin:8px 0}
+.request-images{display:grid;gap:8px}

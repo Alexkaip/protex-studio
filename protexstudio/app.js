@@ -1,5 +1,6 @@
 let supabaseClient;
 let products = [];
+let categories = [];
 let filteredProducts = [];
 let currentProductIndex = 0;
 let selectedCategory = "";
@@ -32,6 +33,7 @@ async function init(){
   try{
     supabaseClient = getSupabaseClient();
     await loadProducts();
+    await loadCategories();
   }catch(err){
     showWarning(err.message);
   }
@@ -73,13 +75,25 @@ async function loadProducts(){
   const {data,error}=await supabaseClient.from("products").select("*").eq("active",true).order("id",{ascending:true});
   if(error)throw error;
   products=(data||[]).map(productFromRow);
+}
+
+async function loadCategories(){
+  try{
+    const {data,error}=await supabaseClient.from("categories").select("*").order("name",{ascending:true});
+    if(error)throw error;
+    categories=(data||[]).map(row=>row.name).filter(Boolean);
+  }catch(err){
+    console.warn("Kategorien-Tabelle konnte nicht geladen werden:",err.message);
+    categories=[];
+  }
   buildCategoryFilter();
   renderStartCategories();
   resetConfiguratorPreview();
 }
 
 function getCategories(){
-  return [...new Set(products.map(p=>p.category).filter(Boolean))].sort();
+  const productCats=products.map(p=>p.category).filter(Boolean);
+  return [...new Set([...categories,...productCats])].sort();
 }
 
 function buildCategoryFilter(){
@@ -566,42 +580,63 @@ function blobToBase64(blob){
 
 async function sendOrder(){
   const clientEmail=document.getElementById("client-email").value.trim(),status=document.getElementById("send-status");
+  const notes=document.getElementById("client-notes").value.trim();
   if(!clientEmail){alert("Bitte E-Mail angeben.");return;}
   if(!requestItems.length){alert("Bitte zuerst mindestens ein Produkt hinzufügen.");return;}
   const mailText=buildMailText(),sendBtn=document.getElementById("send-order-btn");
-  sendBtn.disabled=true;sendBtn.textContent="Wird gesendet...";status.textContent="Layouts werden vorbereitet...";
+  sendBtn.disabled=true;sendBtn.textContent="Wird gespeichert...";status.textContent="Layouts werden vorbereitet...";
   try{
-    const attachments=[];
+    const layoutImages=[];
     let fileIndex=1;
     for(const item of requestItems){
       for(const side of ["front","back"]){
         if(fileIndex>5) break;
         if(side==="back" && !item.productImages.back && !(item.designs.back||[]).length) continue;
         const blob=await createSideBlob(item,side);
-        attachments.push({
+        layoutImages.push({
           filename:"layout-"+fileIndex+"-"+slugify(item.title)+"-"+side+".jpg",
+          side,
+          product:item.title,
           content:await blobToBase64(blob)
         });
         fileIndex++;
       }
       if(fileIndex>5) break;
     }
-    status.textContent="Anfrage wird über Vercel gesendet...";
-    const response=await fetch("/api/send-order",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({clientEmail,mailText,attachments})
+
+    const cleanItems=requestItems.map(item=>({
+      title:item.title,
+      price:item.price,
+      desc:item.desc||"",
+      category:item.category||"",
+      quantities:item.quantities||[],
+      productImages:item.productImages||{},
+      designSummary:designSummary(item.designs),
+      designs:item.designs||{front:[],back:[]}
+    }));
+
+    status.textContent="Anfrage wird im Admin gespeichert...";
+    const {error}=await supabaseClient.from("requests").insert({
+      customer_email:clientEmail,
+      note:notes,
+      mail_text:mailText,
+      order_data:{items:cleanItems,total_items:cleanItems.length},
+      layout_images:layoutImages,
+      status:"Neu"
     });
-    let result={};
-    try{result=await response.json();}catch(_err){}
-    if(!response.ok)throw new Error(result.error||("Vercel Antwort: "+response.status+" "+response.statusText));
-    status.textContent="Danke! Anfrage wurde gesendet.";
-    alert("Anfrage wurde gesendet.");
+    if(error)throw error;
+
+    status.textContent="Danke! Anfrage wurde gespeichert.";
+    alert("Anfrage wurde gespeichert. Wir melden uns ehestmöglich.");
+    requestItems=[];
+    renderRequestList();
+    document.getElementById("client-notes").value="";
   }catch(error){
     console.error(error);
     status.textContent="Fehler: "+error.message;
-    alert("Direktversand fehlgeschlagen: "+error.message);
+    alert("Speichern fehlgeschlagen: "+error.message+"\\n\\nBitte prüfe, ob die Supabase Tabelle requests angelegt wurde.");
   }finally{
-    sendBtn.disabled=false;sendBtn.textContent="Anfrage direkt senden";
+    sendBtn.disabled=false;sendBtn.textContent="Anfrage speichern";
   }
 }
+

@@ -1,24 +1,30 @@
-PROTEX Projekt v17 - Kategorien + Vercel E-Mail Versand
+PROTEX Projekt v18 - Kategorien dauerhaft + Anfragen im Admin
 
 Neu:
-- Kundenansicht startet mit Kategorie-Auswahl.
-- Nach Klick auf eine Kategorie werden nur passende Produkte angezeigt.
-- Erst mit Klick auf ein Produkt öffnet sich der Produktkonfigurator.
-- Netlify-Formular wurde entfernt.
-- Anfrage-Versand läuft jetzt über Vercel API: /api/send-order
-- Layoutbilder werden als Anhänge mitgeschickt.
+- Kategorien können im Admin selbst angelegt werden.
+- Kategorien werden dauerhaft in Supabase gespeichert.
+- Startseite zeigt zuerst Kategorien.
+- Klick auf Kategorie zeigt nur passende Produkte.
+- Klick auf Produkt öffnet den Konfigurator.
+- E-Mail-Versand ist vorerst deaktiviert.
+- Kundenanfragen werden direkt in Supabase gespeichert.
+- Im Adminbereich gibt es jetzt "📋 Anfragen" mit Detailansicht und Layout-Downloads.
 
-Wichtig für Vercel:
-1. Dateien komplett in dein GitHub-Projekt hochladen und alte Dateien ersetzen.
-2. In Vercel unter Project Settings > Environment Variables diese Werte anlegen:
-   RESEND_API_KEY = dein Resend API Key
-   ORDER_TO_EMAIL = office@protex-austria.at
-   ORDER_FROM_EMAIL = Protex Studio <onboarding@resend.dev>
+WICHTIG:
+Vor dem Testen in Supabase ausführen:
+supabase-setup-v18.sql
 
-Hinweis:
-- Mit onboarding@resend.dev kannst du am Anfang testen.
-- Für den echten Betrieb solltest du später deine Domain bei Resend bestätigen und z.B. Protex Studio <office@protex-austria.at> verwenden.
-- Danach in Vercel neu deployen.
+Supabase:
+1. Supabase öffnen
+2. SQL Editor
+3. Inhalt von supabase-setup-v18.sql einfügen
+4. Run / Ausführen
+
+Danach:
+- Dateien komplett in GitHub ersetzen.
+- Vercel deployed automatisch neu.
+- Kunden senden Anfragen, diese erscheinen im Admin unter /admin.html
 
 Admin:
 - /admin.html
+- Benutzer wie bisher über Supabase Authentication anlegen.
