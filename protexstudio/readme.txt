@@ -1,20 +1,31 @@
-PROTEX Projekt v23 - 4 Seiten + Mobile Steuerung + Schriften
+PROTEX Projekt v24 - 4 Seiten + Mengenrabatt + Gutscheincodes
 
-Neu:
-- Produkte können jetzt bis zu 4 Bilder haben:
-  1. Vorderseite
-  2. Rückseite
-  3. Linker Ärmel
-  4. Rechter Ärmel
-- Im Konfigurator erscheinen nur die Seiten, für die im Admin ein Bild hinterlegt ist.
-- Wenn z.B. nur ein Vorderseitenbild hochgeladen wurde, sind Rückseite und Ärmel automatisch deaktiviert.
-- Texte, Logos, Originalgrafiken und Layoutbilder werden weiterhin in der Anfrage gespeichert.
-- Mobile Steuerung und zusätzliche Schriftarten bleiben erhalten.
+Neu in V24:
+- Mengenrabatt automatisch nach Gesamtstückzahl:
+  ab 10 Stück = 5 %
+  ab 25 Stück = 10 %
+  ab 50 Stück = 15 %
+  ab 100 Stück = 20 %
+- Gutscheincodes:
+  PROTEX10 = 10 %
+  VIP20 = 20 %
+  VEREIN30 = 30 %
+  SPONSOR40 = 40 %
+- Berechnung: Warenwert -> Mengenrabatt -> Gutscheincode -> Endpreis
+- Rabattdaten werden in der Anfrage gespeichert.
+- Rabattdaten werden im Admin angezeigt.
 
-WICHTIG:
-In Supabase die Datei supabase-setup-v18.sql erneut ausführen.
-Dadurch werden die optionalen Spalten image_left_sleeve und image_right_sleeve ergänzt.
+Bestehende Funktionen bleiben enthalten:
+- Kategorien
+- 4 Seiten: Vorderseite, Rückseite, linker Ärmel, rechter Ärmel
+- Seite nur aktiv, wenn Bild im Admin vorhanden ist
+- Mobile Steuerung
+- Mehr Schriftarten
+- Originalgrafiken und Layoutbilder in der Anfrage
+- Texte mit Schriftart, Farbe, Position im Admin
 
-Upload:
-Alle Dateien wieder in GitHub in den Ordner protexstudio hochladen und bestehende Dateien ersetzen.
-Danach Vercel Deployment abwarten und mit STRG+F5 neu laden.
+Wichtig:
+- Dateien im GitHub-Ordner protexstudio ersetzen.
+- Vercel Deployment abwarten bis Ready.
+- Danach STRG + F5 im Browser.
+- Für V24 ist keine neue SQL-Datei nötig, wenn V23/V18 schon funktioniert.

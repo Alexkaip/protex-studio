@@ -23,6 +23,63 @@ function getSideImage(product,side){
 }
 function sideHasImage(product,side){return !!getSideImage(product,side);}
 
+
+const COUPON_CODES = {
+  PROTEX10: 10,
+  VIP20: 20,
+  VEREIN30: 30,
+  SPONSOR40: 40
+};
+
+function getQuantityDiscountRate(qty){
+  if(qty >= 100) return 20;
+  if(qty >= 50) return 15;
+  if(qty >= 25) return 10;
+  if(qty >= 10) return 5;
+  return 0;
+}
+
+function getVoucherInfo(){
+  const input=document.getElementById("voucher-code");
+  const code=input ? input.value.trim().toUpperCase() : "";
+  if(!code) return {code:"",rate:0,valid:false,message:""};
+  const rate=COUPON_CODES[code]||0;
+  return {code,rate,valid:rate>0,message:rate>0?("✓ Gutscheincode gültig (-"+rate+"%)"):("✗ Gutscheincode ungültig")};
+}
+
+function calculatePricing(items){
+  const totalQty=(items||[]).reduce((sum,item)=>sum+(item.quantities||[]).reduce((s,q)=>s+(parseInt(q.qty,10)||0),0),0);
+  const subtotal=(items||[]).reduce((sum,item)=>{
+    const qty=(item.quantities||[]).reduce((s,q)=>s+(parseInt(q.qty,10)||0),0);
+    const price=Number(String(item.price||0).replace(",","."))||0;
+    return sum + qty * price;
+  },0);
+  const quantityDiscountRate=getQuantityDiscountRate(totalQty);
+  const quantityDiscountAmount=subtotal*quantityDiscountRate/100;
+  const afterQuantity=subtotal-quantityDiscountAmount;
+  const voucher=getVoucherInfo();
+  const voucherDiscountRate=voucher.valid ? voucher.rate : 0;
+  const voucherDiscountAmount=afterQuantity*voucherDiscountRate/100;
+  const total=afterQuantity-voucherDiscountAmount;
+  return {totalQty,subtotal,quantityDiscountRate,quantityDiscountAmount,afterQuantity,voucherCode:voucher.code,voucherValid:voucher.valid,voucherDiscountRate,voucherDiscountAmount,total};
+}
+
+function renderPricingHtml(pricing,title){
+  return '<div class="pricing-title">'+title+'</div>'+ 
+    '<div>Gesamtmenge: <strong>'+pricing.totalQty+' Stück</strong></div>'+ 
+    '<div>Warenwert: <strong>€ '+formatPrice(pricing.subtotal)+'</strong></div>'+ 
+    '<div>Mengenrabatt: <strong>'+pricing.quantityDiscountRate+'%</strong> (-€ '+formatPrice(pricing.quantityDiscountAmount)+')</div>'+ 
+    '<div>Zwischensumme: <strong>€ '+formatPrice(pricing.afterQuantity)+'</strong></div>'+ 
+    '<div>Gutscheincode: <strong>'+(pricing.voucherCode||'-')+'</strong> '+(pricing.voucherDiscountRate?('(-'+pricing.voucherDiscountRate+'%)'):'')+'</div>'+ 
+    '<div class="pricing-final">Endpreis: € '+formatPrice(pricing.total)+'</div>';
+}
+
+function getCurrentPricingItems(){
+  const prod=filteredProducts[currentProductIndex];
+  if(!prod) return [];
+  return [{price:prod.price,quantities:getQuantities()}];
+}
+
 const pImg = document.getElementById("product-img");
 const cTitle = document.getElementById("curr-title");
 const cDesc = document.getElementById("curr-desc");
@@ -80,6 +137,10 @@ function bindEvents(){
   document.getElementById("add-request-btn").addEventListener("click",addCurrentProductToRequest);
   document.getElementById("download-design-btn").addEventListener("click",downloadAllRequestDesignImages);
   document.getElementById("send-order-btn").addEventListener("click",sendOrder);
+  const voucherInput=document.getElementById("voucher-code");
+  if(voucherInput){voucherInput.addEventListener("input",()=>{updateTotal();renderRequestList();});}
+  const voucherBtn=document.getElementById("voucher-check-btn");
+  if(voucherBtn){voucherBtn.addEventListener("click",()=>{updateTotal();renderRequestList();});}
   document.getElementById("front-btn").addEventListener("click",()=>setSide("front"));
   document.getElementById("back-btn").addEventListener("click",()=>setSide("back"));
   document.getElementById("left-sleeve-btn").addEventListener("click",()=>setSide("leftSleeve"));
@@ -284,10 +345,15 @@ function getQuantities(){
 }
 
 function updateTotal(){
-  const prod=filteredProducts[currentProductIndex];
-  const qty=getQuantities().reduce((s,x)=>s+x.qty,0);
-  const total=qty*(Number(String(prod?.price||0).replace(",","."))||0);
-  document.getElementById("total-box").textContent="Gesamt: "+qty+" Stück · € "+formatPrice(total);
+  const box=document.getElementById("total-box");
+  const pricing=calculatePricing(getCurrentPricingItems());
+  box.innerHTML=renderPricingHtml(pricing,"Aktuelles Produkt");
+  const status=document.getElementById("voucher-status");
+  const voucher=getVoucherInfo();
+  if(status){
+    status.textContent=voucher.message;
+    status.className="sub "+(voucher.code?(voucher.valid?"voucher-ok":"voucher-bad"):"");
+  }
 }
 
 function setSide(side){
@@ -583,6 +649,10 @@ function renderRequestList(){
     btn.addEventListener("click",()=>removeRequestItem(idx));
     row.appendChild(info);row.appendChild(btn);list.appendChild(row);
   });
+  const pricing=document.createElement("div");
+  pricing.className="pricing-summary";
+  pricing.innerHTML=renderPricingHtml(calculatePricing(requestItems),"Anfrage gesamt");
+  list.appendChild(pricing);
 }
 
 function buildMailText(){
@@ -601,9 +671,19 @@ function buildMailText(){
       "- Beschreibung: "+(item.desc||"-")+"\\n"+
       "- Design: "+designSummary(item.designs)+"\\n\\n";
   });
-  return "Hallo!\\n\\nich habe folgende Produkte im Konfigurator zusammengestellt.\\n\\nPRODUKTE / ANFRAGE:\\n"+productText+
-    "KUNDEN-INFOS:\\n- Meine E-Mail: "+clientEmail+"\\n- Anmerkung: "+(notes||"-")+"\\n\\n"+
-    "Die Layoutbilder für Vorder- und Rückseite wurden über das Online-Formular mitgesendet.\\n\\nBitte um Rückmeldung.\\n";
+  const pricing=calculatePricing(requestItems);
+  const rabattText="PREIS / RABATT:\n"+
+    "- Gesamtmenge: "+pricing.totalQty+" Stück\n"+
+    "- Warenwert: € "+formatPrice(pricing.subtotal)+"\n"+
+    "- Mengenrabatt: "+pricing.quantityDiscountRate+"% (-€ "+formatPrice(pricing.quantityDiscountAmount)+")\n"+
+    "- Zwischensumme: € "+formatPrice(pricing.afterQuantity)+"\n"+
+    "- Gutscheincode: "+(pricing.voucherCode||"-")+"\n"+
+    "- Gutscheinrabatt: "+pricing.voucherDiscountRate+"% (-€ "+formatPrice(pricing.voucherDiscountAmount)+")\n"+
+    "- Endpreis: € "+formatPrice(pricing.total)+"\n\n";
+  return "Hallo!\n\nich habe folgende Produkte im Konfigurator zusammengestellt.\n\nPRODUKTE / ANFRAGE:\n"+productText+
+    rabattText+
+    "KUNDEN-INFOS:\n- Meine E-Mail: "+clientEmail+"\n- Anmerkung: "+(notes||"-")+"\n\n"+
+    "Die Layoutbilder für Vorder- und Rückseite wurden über das Online-Formular mitgesendet.\n\nBitte um Rückmeldung.\n";
 }
 
 function createSideBlob(item,side){
@@ -737,6 +817,7 @@ async function sendOrder(){
     });
 
     status.textContent="Anfrage wird im Admin gespeichert...";
+    const pricing=calculatePricing(requestItems);
    const cleanItems = requestItems.map(item => ({
   title: item.title,
   price: item.price,
@@ -755,7 +836,8 @@ const {error}=await supabaseClient.from("requests").insert({
   order_data: {
     items: cleanItems,
     total_items: cleanItems.length,
-    uploaded_files: uploadedFiles
+    uploaded_files: uploadedFiles,
+    pricing: pricing
   },
   layout_images: layoutImages,
   status: "Neu"

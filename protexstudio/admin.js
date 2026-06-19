@@ -348,6 +348,19 @@ function showRequestDetail(r){
   html+='<button class="btn btn-danger" id="detail-delete-request-btn" type="button">Anfrage löschen</button>';
   html+='<p><strong>Anmerkung:</strong><br>'+escapeHtml(r.note||"-").replaceAll("\\n","<br>")+'</p>';
 
+  const pricing=r.order_data?.pricing;
+  if(pricing){
+    html+='<div class="discount-box"><strong>Preis / Rabatt</strong><br>';
+    html+='Gesamtmenge: '+escapeHtml(pricing.totalQty||0)+' Stück<br>';
+    html+='Warenwert: € '+formatPrice(pricing.subtotal||0)+'<br>';
+    html+='Mengenrabatt: '+escapeHtml(pricing.quantityDiscountRate||0)+'% (-€ '+formatPrice(pricing.quantityDiscountAmount||0)+')<br>';
+    html+='Zwischensumme: € '+formatPrice(pricing.afterQuantity||0)+'<br>';
+    html+='Gutscheincode: '+escapeHtml(pricing.voucherCode||'-')+'<br>';
+    html+='Gutscheinrabatt: '+escapeHtml(pricing.voucherDiscountRate||0)+'% (-€ '+formatPrice(pricing.voucherDiscountAmount||0)+')<br>';
+    html+='<strong>Endpreis: € '+formatPrice(pricing.total||0)+'</strong>';
+    html+='</div>';
+  }
+
   html+='<h3>Produkte</h3>';
 
   items.forEach((item,idx)=>{
