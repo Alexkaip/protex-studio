@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="de">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Protex Online Admin</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<header class="header container"><div><div class="brand">Protex Online Admin</div><div class="sub">Produkte & Kategorien live pflegen</div></div><div class="btn-row" style="min-width:260px"><a class="btn btn-light" href="index.html">Kundenansicht</a><button class="btn btn-secondary" id="logout-btn" type="button">Logout</button></div></header>
+<main class="container"><div id="config-warning" class="notice warn hidden"></div>
+<section id="login-card" class="card" style="max-width:460px;margin:40px auto;"><h1>Admin Login</h1><div class="form-group"><label>E-Mail</label><input type="email" id="login-email"></div><div class="form-group"><label>Passwort</label><input type="password" id="login-password"></div><button class="btn" id="login-btn" type="button">Einloggen</button><div id="login-status" class="sub" style="margin-top:10px"></div></section>
+<section id="admin-area" class="admin-layout hidden">
+<div class="card">
+<h2>Kategorien</h2><div class="btn-row"><input type="text" id="new-category" placeholder="z.B. T-Shirt, Hose, Serien"><button class="btn btn-light" id="add-category-btn" type="button">Hinzufügen</button></div><div id="category-list" class="category-list"></div>
+<h2 id="form-title">Produkt anlegen</h2><input type="hidden" id="edit-id">
+<div class="form-group"><label>Produktname</label><input type="text" id="p-title"></div>
+<div class="form-group"><label>Kategorie</label><select id="p-category"></select></div>
+<div class="form-group"><label>Beschreibung</label><textarea id="p-desc" rows="3"></textarea></div>
+<div class="form-group"><label>Preis</label><input type="text" id="p-price"></div>
+<div class="form-group"><label>Größen</label><input type="text" id="p-sizes" value="S,M,L,XL,XXL"></div>
+<div class="form-group"><label>Bild Vorderseite</label><input type="file" id="p-front" accept="image/*"></div>
+<div class="form-group"><label>Bild Rückseite</label><input type="file" id="p-back" accept="image/*"></div>
+<div class="form-group"><label><input type="checkbox" id="p-active" checked> Aktiv</label></div>
+<div class="btn-row"><button class="btn" id="save-product-btn" type="button">Speichern</button><button class="btn btn-light" id="reset-form-btn" type="button">Neu</button></div><div id="save-status" class="sub"></div>
+<h2>CSV Import/Export</h2><div class="form-group"><label>CSV importieren</label><input type="file" id="csv-import" accept=".csv,text/csv"></div><div class="btn-row"><button class="btn btn-secondary" id="csv-template-btn" type="button">Vorlage</button><button class="btn btn-secondary" id="csv-export-btn" type="button">Export</button></div><div class="notice warn">CSV importiert Daten. Bilder bitte danach beim Produkt hochladen.</div>
+</div>
+<div class="card"><h2>Produkte</h2><div class="btn-row"><input type="text" id="search" placeholder="Suchen..."><button class="btn btn-light" id="reload-btn" type="button">Neu laden</button></div><div id="product-list" class="product-list"></div>
+<h2>📋 Anfragen</h2><div class="btn-row"><button class="btn btn-light" id="reload-requests-btn" type="button">Anfragen neu laden</button><div></div></div><div id="admin-request-list" class="admin-request-list"></div><div id="admin-request-detail" class="admin-request-detail notice"><div class="sub">Anfrage anklicken für Details.</div></div></div>
+</section></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="config.js"></script><script src="supabase-helper.js"></script><script src="admin.js"></script>
+</body></html>
