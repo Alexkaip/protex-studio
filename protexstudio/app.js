@@ -298,7 +298,17 @@ function handleLogoUpload(e){
   const file=e.target.files[0];
   if(!file||!file.type.startsWith("image/"))return;
   const reader=new FileReader();
-  reader.onload=()=>{addDesignItem({type:"image",src:reader.result});e.target.value="";};
+  reader.onload=()=>{
+    const dataUrl=String(reader.result||"");
+    addDesignItem({
+      type:"image",
+      src:dataUrl,
+      originalName:file.name||"grafik",
+      mime:file.type||"image/png",
+      originalContent:dataUrl.split(",")[1]||""
+    });
+    e.target.value="";
+  };
   reader.readAsDataURL(file);
 }
 
@@ -604,6 +614,27 @@ async function sendOrder(){
       if(fileIndex>5) break;
     }
 
+    const uploadedFiles=[];
+    const seenUploads=new Set();
+    requestItems.forEach(item=>{
+      ["front","back"].forEach(side=>{
+        (item.designs?.[side]||[]).forEach(d=>{
+          if(d.type==="image" && d.originalContent){
+            const key=(d.originalName||"grafik")+":"+d.originalContent.slice(0,80);
+            if(!seenUploads.has(key)){
+              seenUploads.add(key);
+              uploadedFiles.push({
+                filename:d.originalName||("grafik-"+(uploadedFiles.length+1)+".png"),
+                mime:d.mime||"image/png",
+                content:d.originalContent,
+                used_on:item.title+" - "+getSideLabel(side)
+              });
+            }
+          }
+        });
+      });
+    });
+
     const cleanItems=requestItems.map(item=>({
       title:item.title,
       price:item.price,
@@ -620,7 +651,7 @@ async function sendOrder(){
       customer_email:clientEmail,
       note:notes,
       mail_text:mailText,
-      order_data:{items:cleanItems,total_items:cleanItems.length},
+      order_data:{items:cleanItems,total_items:cleanItems.length,uploaded_files:uploadedFiles},
       layout_images:layoutImages,
       status:"Neu"
     });

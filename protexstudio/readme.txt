@@ -28,3 +28,9 @@ Danach:
 Admin:
 - /admin.html
 - Benutzer wie bisher über Supabase Authentication anlegen.
+
+
+V19 Änderungen:
+- Anfragen können im Admin gelöscht werden.
+- Hochgeladene Grafiken werden zusätzlich im Originalformat in der Anfrage gespeichert und können heruntergeladen werden.
+- Produktbild im Desktop-Konfigurator größer dargestellt.

@@ -336,6 +336,7 @@ function showRequestDetail(r){
   let html='<h3>Anfrage</h3>';
   html+='<div class="sub">'+formatDate(r.created_at)+' · '+(r.status||"Neu")+'</div>';
   html+='<p><strong>Kunde:</strong> '+escapeHtml(r.customer_email||"-")+'</p>';
+  html+='<button class="btn btn-danger" type="button" onclick="deleteRequest('+r.id+')">Anfrage löschen</button>';
   html+='<p><strong>Anmerkung:</strong><br>'+escapeHtml(r.note||"-").replaceAll("\\n","<br>")+'</p>';
   html+='<h3>Produkte</h3>';
   items.forEach((item,idx)=>{
@@ -344,6 +345,17 @@ function showRequestDetail(r){
     html+='<span class="sub">'+escapeHtml(item.category||"-")+' · € '+escapeHtml(item.price||"")+'</span><br>';
     html+='Menge: '+qty+'<br>Design: '+escapeHtml(item.designSummary||"-")+'</div>';
   });
+  const uploadedFiles=r.order_data?.uploaded_files||[];
+  if(uploadedFiles.length){
+    html+='<h3>Original hochgeladene Grafiken</h3><div class="request-images">';
+    uploadedFiles.forEach((file,i)=>{
+      const mime=escapeHtml(file.mime||"application/octet-stream");
+      const filename=escapeHtml(file.filename||("grafik-"+(i+1)));
+      const used=escapeHtml(file.used_on||"");
+      html+='<a class="btn btn-light" download="'+filename+'" href="data:'+mime+';base64,'+file.content+'">Grafik '+(i+1)+' herunterladen'+(used?' · '+used:'')+'</a>';
+    });
+    html+='</div>';
+  }
   if((r.layout_images||[]).length){
     html+='<h3>Layoutbilder</h3><div class="request-images">';
     (r.layout_images||[]).forEach((img,i)=>{
@@ -352,6 +364,19 @@ function showRequestDetail(r){
     html+='</div>';
   }
   detail.innerHTML=html;
+}
+
+async function deleteRequest(id){
+  if(!confirm("Diese Anfrage wirklich löschen?"))return;
+  try{
+    const{error}=await supabaseClient.from("requests").delete().eq("id",id);
+    if(error)throw error;
+    const detail=document.getElementById("admin-request-detail");
+    if(detail)detail.innerHTML='<div class="sub">Anfrage gelöscht.</div>';
+    await loadRequests();
+  }catch(err){
+    alert("Anfrage konnte nicht gelöscht werden: "+err.message);
+  }
 }
 
 function formatDate(value){
