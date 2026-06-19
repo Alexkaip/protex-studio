@@ -345,6 +345,36 @@ function showRequestDetail(r){
     html+='<div class="request-detail-item"><strong>'+(idx+1)+'. '+escapeHtml(item.title||"-")+'</strong><br>';
     html+='<span class="sub">'+escapeHtml(item.category||"-")+' · € '+escapeHtml(item.price||"")+'</span><br>';
     html+='Menge: '+qty+'<br>Design: '+escapeHtml(item.designSummary||"-");
+
+const textItems=[];
+["front","back"].forEach(side=>{
+  (item.designs?.[side]||[]).forEach(d=>{
+    if(d.type==="text" && d.text){
+      textItems.push({
+        side: side==="front" ? "Vorderseite" : "Rückseite",
+        text: d.text,
+        color: d.color || "",
+        font: d.font || "",
+        fontSize: d.fontSize || "",
+        x: d.relX || "",
+        y: d.relY || ""
+      });
+    }
+  });
+});
+
+if(textItems.length){
+  html+='<br><br><strong>Texte:</strong>';
+  textItems.forEach(t=>{
+    html+='<br>• '+escapeHtml(t.side)+': "'+escapeHtml(t.text)+'"';
+    html+='<br>&nbsp;&nbsp;Schrift: '+escapeHtml(t.font || "-");
+    html+='<br>&nbsp;&nbsp;Farbe: '+escapeHtml(t.color || "-");
+    html+='<br>&nbsp;&nbsp;Größe: '+escapeHtml(t.fontSize || "-");
+    html+='<br>&nbsp;&nbsp;Position: X '+escapeHtml(t.x)+' / Y '+escapeHtml(t.y);
+  });
+}
+
+html+='</div>';
     const texts=item.designTexts||[];
     if(texts.length){html+='<br><strong>Texte:</strong><br>'+texts.map(t=>escapeHtml(t)).join('<br>');}
     const itemFiles=item.originalFiles||[];
