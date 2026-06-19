@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="de">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Protex Studio - Kunden-Konfigurator</title><link rel="stylesheet" href="style.css"></head>
+<body>
+
+<header class="header container"><div><div class="brand">Protex Studio</div><div class="sub">Produkt-Konfigurator</div></div><div class="sub">✉️ <a href="mailto:office@protex-austria.at">office@protex-austria.at</a></div></header>
+<main class="container">
+<section id="category-start" class="category-start card">
+  <div class="start-head">
+    <div>
+      <h1>Was möchtest du gestalten?</h1>
+      <div class="sub">Wähle zuerst eine Kategorie. Danach siehst du alle passenden Produkte.</div>
+    </div>
+  </div>
+  <div id="start-config-warning" class="notice warn hidden"></div>
+  <div id="start-category-grid" class="start-category-grid">
+    <div class="notice">Kategorien werden geladen...</div>
+  </div>
+  <div id="start-product-area" class="start-product-area hidden">
+    <div class="start-head">
+      <div>
+        <h2 id="start-product-title">Produkte</h2>
+        <div class="sub">Klicke auf ein Produkt, um den Konfigurator zu öffnen.</div>
+      </div>
+      <button class="btn btn-light start-back-btn" id="start-back-btn" type="button">Andere Kategorie wählen</button>
+    </div>
+    <div id="start-product-grid" class="start-product-grid"></div>
+  </div>
+</section>
+
+<section id="configurator-screen" class="grid hidden">
+<section class="card editor-section"><div id="canvas-container"><img id="product-img" alt="Produktbild"><div id="design-layer"></div></div></section>
+<aside class="card">
+<div id="config-warning" class="notice warn hidden"></div>
+<button class="btn btn-light" id="back-to-products-btn" type="button">← Zur Produktübersicht</button><h2>1. Ausgewähltes Produkt</h2>
+<div class="form-group hidden"><label>Kategorie</label><select id="category-filter"><option value="">Alle Kategorien</option></select></div>
+<div class="dropdown hidden" id="product-dropdown"><div class="dropdown-selected" id="dropdown-trigger">Produkte werden geladen...</div><div class="dropdown-options" id="dropdown-options-container"></div></div>
+<div class="product-info-box"><div id="curr-title"><strong>Kein Produkt</strong></div><div id="curr-desc" class="sub">Bitte Produkt auswählen.</div><div id="curr-price" class="dropdown-price"></div></div>
+
+<h2>2. Seite gestalten</h2>
+<div class="btn-row"><button class="switch-btn active" id="front-btn" type="button">Vorderseite</button><button class="switch-btn" id="back-btn" type="button">Rückseite</button></div>
+
+<h2>3. Design hinzufügen</h2>
+<div class="tools-box">
+  <div class="form-group"><label>Logo/Grafik hinzufügen</label><input type="file" id="logo-loader" accept="image/*"></div>
+  <div class="form-group"><label>Text eingeben</label><input type="text" id="text-input" placeholder="z.B. Name, Nummer, Sponsor..."></div>
+  <div class="btn-row">
+    <input type="color" id="text-color" value="#000000" title="Textfarbe">
+    <select id="font-select"><option value="Arial, sans-serif">Arial</option><option value="'Arial Black', Arial, sans-serif">Arial Black</option><option value="'Trebuchet MS', sans-serif">Trebuchet</option><option value="Verdana, sans-serif">Verdana</option><option value="Georgia, serif">Georgia</option><option value="'Times New Roman', serif">Times New Roman</option><option value="'Courier New', monospace">Courier New</option><option value="'Impact', sans-serif">Impact</option></select>
+  </div>
+  <button class="btn btn-light" id="add-text-btn" type="button">Text hinzufügen</button>
+</div>
+<div class="btn-row">
+  <button class="btn btn-secondary" id="delete-selected-btn" type="button">Auswahl löschen</button>
+  <button class="btn btn-secondary" id="reset-side-btn" type="button">Diese Seite leeren</button>
+</div>
+<div class="notice">💡 Elemente anklicken, verschieben und unten rechts skalieren. Du kannst Text und mehrere Logos gleichzeitig verwenden.</div>
+
+<h2>4. Größen & Menge</h2><div id="size-grid" class="size-grid"></div><div id="total-box" class="total-box">Gesamt: 0 Stück · € 0.00</div>
+
+<h2>5. Anfrage</h2><button class="btn btn-light" id="add-request-btn" type="button">Aktuelles Produkt zur Anfrage hinzufügen</button><div id="request-list" class="request-list"><div class="sub">Noch keine Produkte in der Anfrage.</div></div><button class="btn btn-secondary" id="download-design-btn" type="button">Layouts herunterladen</button>
+
+<h2>6. Senden</h2><div class="form-group"><label>Deine E-Mail-Adresse</label><input type="email" id="client-email" placeholder="name@beispiel.at"></div><div class="form-group"><label>Anmerkungen</label><textarea id="client-notes" rows="3"></textarea></div><button class="btn" id="send-order-btn" type="button">Anfrage direkt senden</button><div id="send-status" class="sub"></div>
+</aside></section></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="config.js"></script><script src="supabase-helper.js"></script><script src="app.js"></script>
+</body></html>
