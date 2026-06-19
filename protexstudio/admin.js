@@ -321,10 +321,11 @@ function renderRequests(){
     const count=(r.order_data?.items||[]).length;
     const row=document.createElement("div");
     row.className="admin-request-row";
-    row.innerHTML='<div><strong></strong><div class="sub"></div></div><span class="request-status"></span>';
+    row.innerHTML='<div class="request-row-main"><strong></strong><div class="sub"></div></div><span class="request-status"></span><button class="mini-delete-btn" type="button">Löschen</button>';
     row.querySelector("strong").textContent=r.customer_email||"Ohne E-Mail";
     row.querySelector(".sub").textContent=formatDate(r.created_at)+" · "+count+" Produkt(e)";
     row.querySelector(".request-status").textContent=r.status||"Neu";
+    row.querySelector(".mini-delete-btn").addEventListener("click",e=>{e.stopPropagation();deleteRequest(r.id);});
     row.addEventListener("click",()=>showRequestDetail(r));
     list.appendChild(row);
   });
@@ -336,14 +337,27 @@ function showRequestDetail(r){
   let html='<h3>Anfrage</h3>';
   html+='<div class="sub">'+formatDate(r.created_at)+' · '+(r.status||"Neu")+'</div>';
   html+='<p><strong>Kunde:</strong> '+escapeHtml(r.customer_email||"-")+'</p>';
-  html+='<button class="btn btn-danger" type="button" onclick="deleteRequest('+r.id+')">Anfrage löschen</button>';
+  html+='<button class="btn btn-danger" id="detail-delete-request-btn" type="button">Anfrage löschen</button>';
   html+='<p><strong>Anmerkung:</strong><br>'+escapeHtml(r.note||"-").replaceAll("\\n","<br>")+'</p>';
   html+='<h3>Produkte</h3>';
   items.forEach((item,idx)=>{
     const qty=(item.quantities||[]).map(q=>escapeHtml(q.size)+": "+escapeHtml(q.qty)).join(", ")||"-";
     html+='<div class="request-detail-item"><strong>'+(idx+1)+'. '+escapeHtml(item.title||"-")+'</strong><br>';
     html+='<span class="sub">'+escapeHtml(item.category||"-")+' · € '+escapeHtml(item.price||"")+'</span><br>';
-    html+='Menge: '+qty+'<br>Design: '+escapeHtml(item.designSummary||"-")+'</div>';
+    html+='Menge: '+qty+'<br>Design: '+escapeHtml(item.designSummary||"-");
+    const texts=item.designTexts||[];
+    if(texts.length){html+='<br><strong>Texte:</strong><br>'+texts.map(t=>escapeHtml(t)).join('<br>');}
+    const itemFiles=item.originalFiles||[];
+    if(itemFiles.length){
+      html+='<br><strong>Originalgrafiken:</strong><div class="request-images">';
+      itemFiles.forEach((file,i)=>{
+        const mime=escapeHtml(file.mime||"application/octet-stream");
+        const filename=escapeHtml(file.filename||("grafik-"+(i+1)));
+        html+='<a class="btn btn-light" download="'+filename+'" href="data:'+mime+';base64,'+file.content+'">'+filename+' herunterladen</a>';
+      });
+      html+='</div>';
+    }
+    html+='</div>';
   });
   const uploadedFiles=r.order_data?.uploaded_files||[];
   if(uploadedFiles.length){
@@ -364,6 +378,8 @@ function showRequestDetail(r){
     html+='</div>';
   }
   detail.innerHTML=html;
+  const delBtn=document.getElementById("detail-delete-request-btn");
+  if(delBtn)delBtn.addEventListener("click",()=>deleteRequest(r.id));
 }
 
 async function deleteRequest(id){
@@ -387,3 +403,5 @@ function formatDate(value){
 function escapeHtml(value){
   return String(value??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 }
+
+window.deleteRequest=deleteRequest;

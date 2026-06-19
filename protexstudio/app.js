@@ -288,7 +288,10 @@ function addDesignItem(item){
     relX: .38,
     relY: .32,
     relW: item.type==="image" ? .18 : .22,
-    fontSize: 32
+    fontSize: 32,
+    originalName: item.originalName || "",
+    mime: item.mime || "",
+    originalContent: item.originalContent || ""
   });
   selectedItemId=items[items.length-1].id;
   renderDesignItems();
@@ -444,6 +447,7 @@ function addCurrentProductToRequest(){
   const quantities=getQuantities();
   if(!quantities.length&&!confirm("Keine Menge ausgewählt. Trotzdem hinzufügen?"))return;
 
+  const clonedDesigns=cloneState(designState);
   requestItems.push({
     title:prod.title,
     price:prod.price,
@@ -451,7 +455,9 @@ function addCurrentProductToRequest(){
     category:prod.category||"",
     quantities,
     productImages:{front:prod.imgFront,back:prod.imgBack},
-    designs:cloneState(designState)
+    designs:clonedDesigns,
+    designTexts:designTextSummary(clonedDesigns),
+    originalFiles:originalFilesFromDesigns(clonedDesigns,prod.title)
   });
   renderRequestList();
 }
@@ -462,6 +468,36 @@ function designSummary(designs){
   const front=(designs.front||[]).length;
   const back=(designs.back||[]).length;
   return "Vorne: "+front+" Element(e), Hinten: "+back+" Element(e)";
+}
+
+
+function designTextSummary(designs){
+  const out=[];
+  ["front","back"].forEach(side=>{
+    (designs?.[side]||[]).forEach(d=>{
+      if(d.type==="text" && d.text){
+        out.push(getSideLabel(side)+": "+d.text);
+      }
+    });
+  });
+  return out;
+}
+
+function originalFilesFromDesigns(designs, productTitle){
+  const files=[];
+  ["front","back"].forEach(side=>{
+    (designs?.[side]||[]).forEach((d,idx)=>{
+      if(d.type==="image" && d.originalContent){
+        files.push({
+          filename:d.originalName||("grafik-"+(idx+1)+".png"),
+          mime:d.mime||"application/octet-stream",
+          content:d.originalContent,
+          used_on:(productTitle||"Produkt")+" - "+getSideLabel(side)
+        });
+      }
+    });
+  });
+  return files;
 }
 
 function renderRequestList(){
@@ -616,35 +652,22 @@ async function sendOrder(){
 
     const uploadedFiles=[];
     const seenUploads=new Set();
-    requestItems.forEach(item=>{
-      ["front","back"].forEach(side=>{
-        (item.designs?.[side]||[]).forEach(d=>{
-          if(d.type==="image" && d.originalContent){
-            const key=(d.originalName||"grafik")+":"+d.originalContent.slice(0,80);
-            if(!seenUploads.has(key)){
-              seenUploads.add(key);
-              uploadedFiles.push({
-                filename:d.originalName||("grafik-"+(uploadedFiles.length+1)+".png"),
-                mime:d.mime||"image/png",
-                content:d.originalContent,
-                used_on:item.title+" - "+getSideLabel(side)
-              });
-            }
-          }
-        });
+    function pushOriginalFile(file){
+      if(!file||!file.content)return;
+      const key=(file.filename||"grafik")+":"+String(file.content).slice(0,120);
+      if(seenUploads.has(key))return;
+      seenUploads.add(key);
+      uploadedFiles.push({
+        filename:file.filename||("grafik-"+(uploadedFiles.length+1)),
+        mime:file.mime||"application/octet-stream",
+        content:file.content,
+        used_on:file.used_on||""
       });
+    }
+    requestItems.forEach(item=>{
+      (item.originalFiles||[]).forEach(pushOriginalFile);
+      originalFilesFromDesigns(item.designs,item.title).forEach(pushOriginalFile);
     });
-
-    const cleanItems=requestItems.map(item=>({
-      title:item.title,
-      price:item.price,
-      desc:item.desc||"",
-      category:item.category||"",
-      quantities:item.quantities||[],
-      productImages:item.productImages||{},
-      designSummary:designSummary(item.designs),
-      designs:item.designs||{front:[],back:[]}
-    }));
 
     status.textContent="Anfrage wird im Admin gespeichert...";
     const {error}=await supabaseClient.from("requests").insert({

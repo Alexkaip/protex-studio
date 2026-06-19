@@ -82,3 +82,28 @@ input[type=file]{width:100%;border:1px dashed #e2e8f0;background:#f8fafc;border-
 .admin-request-detail h3{margin:12px 0 6px;font-size:1rem}
 .request-detail-item{border:1px solid var(--border);border-radius:10px;background:#fff;padding:10px;margin:8px 0}
 .request-images{display:grid;gap:8px}
+
+/* V20: Desktop größer + rechte Konfigurator-Spalte scrollbar */
+@media(min-width:901px){
+  .grid{grid-template-columns:minmax(0,1fr) 360px;align-items:start;min-height:calc(100vh - 110px)}
+  .editor-section{min-height:calc(100vh - 115px);height:calc(100vh - 115px);padding:8px;overflow:hidden}
+  #canvas-container{min-height:calc(100vh - 135px);height:100%;overflow:hidden}
+  #product-img{max-width:100%;max-height:calc(100vh - 110px);transform:scale(1.45);transform-origin:center center}
+  #configurator-screen > aside.card{position:sticky;top:10px;max-height:calc(100vh - 20px);overflow-y:auto;scrollbar-width:thin}
+}
+
+/* V20: Löschbutton direkt in Anfrage-Zeile */
+.admin-request-row{grid-template-columns:1fr auto auto;display:grid}
+.request-row-main{min-width:0}
+.mini-delete-btn{border:none;border-radius:999px;background:#fee2e2;color:#b91c1c;font-weight:900;padding:7px 10px;cursor:pointer;white-space:nowrap}
+.mini-delete-btn:hover{background:#fecaca}
+
+
+/* V21 Desktop gross + rechte Spalte scroll */
+@media(min-width:901px){
+  .grid{grid-template-columns:minmax(0,1fr) 360px;align-items:start}
+  .editor-section{height:calc(100vh - 120px);min-height:820px}
+  #canvas-container{height:100%;min-height:800px}
+  #product-img{max-width:100%;max-height:calc(100vh - 100px);transform:scale(1.45);transform-origin:center center}
+  #configurator-screen > aside.card{position:sticky;top:10px;max-height:calc(100vh - 20px);overflow-y:auto;scrollbar-width:thin}
+}

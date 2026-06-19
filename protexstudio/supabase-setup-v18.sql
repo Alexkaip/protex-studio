@@ -1,4 +1,4 @@
--- PROTEX Studio v18
+-- PROTEX Studio v20
 -- In Supabase > SQL Editor ausführen
 
 create table if not exists public.categories (
@@ -52,3 +52,11 @@ on public.requests for update
 to authenticated
 using (true)
 with check (true);
+
+
+-- V20: Admin darf erledigte Anfragen löschen
+drop policy if exists "Anfragen Admin löschen" on public.requests;
+create policy "Anfragen Admin löschen"
+on public.requests for delete
+to authenticated
+using (true);

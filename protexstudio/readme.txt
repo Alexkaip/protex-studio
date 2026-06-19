@@ -1,36 +1,13 @@
-PROTEX Projekt v18 - Kategorien dauerhaft + Anfragen im Admin
+PROTEX Projekt v21 - Originalgrafiken, Texte, großer Desktop
 
-Neu:
-- Kategorien können im Admin selbst angelegt werden.
-- Kategorien werden dauerhaft in Supabase gespeichert.
-- Startseite zeigt zuerst Kategorien.
-- Klick auf Kategorie zeigt nur passende Produkte.
-- Klick auf Produkt öffnet den Konfigurator.
-- E-Mail-Versand ist vorerst deaktiviert.
-- Kundenanfragen werden direkt in Supabase gespeichert.
-- Im Adminbereich gibt es jetzt "📋 Anfragen" mit Detailansicht und Layout-Downloads.
+Korrekturen:
+- Löschen bei Anfragen bleibt direkt bei der Anfrage.
+- Original hochgeladene Grafiken werden zusätzlich pro Produkt in der Anfrage gespeichert.
+- SVG/PNG/JPG können im Admin als Originaldatei heruntergeladen werden.
+- Texte aus dem Konfigurator werden im Admin in der Anfrage angezeigt.
+- Produktbild am Desktop stärker vergrößert.
+- Rechte Konfigurator-Spalte am Desktop scrollbar.
 
-WICHTIG:
-Vor dem Testen in Supabase ausführen:
-supabase-setup-v18.sql
-
-Supabase:
-1. Supabase öffnen
-2. SQL Editor
-3. Inhalt von supabase-setup-v18.sql einfügen
-4. Run / Ausführen
-
-Danach:
-- Dateien komplett in GitHub ersetzen.
-- Vercel deployed automatisch neu.
-- Kunden senden Anfragen, diese erscheinen im Admin unter /admin.html
-
-Admin:
-- /admin.html
-- Benutzer wie bisher über Supabase Authentication anlegen.
-
-
-V19 Änderungen:
-- Anfragen können im Admin gelöscht werden.
-- Hochgeladene Grafiken werden zusätzlich im Originalformat in der Anfrage gespeichert und können heruntergeladen werden.
-- Produktbild im Desktop-Konfigurator größer dargestellt.
+Wichtig:
+Dateien in den von Vercel verwendeten Ordner hochladen, bei dir: protexstudio.
+SQL ist nur nötig, wenn Löschen nicht funktioniert oder die Tabellen fehlen.
