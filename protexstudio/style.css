@@ -124,3 +124,7 @@ input[type=file]{width:100%;border:1px dashed #e2e8f0;background:#f8fafc;border-
 @media(min-width:901px){
   .mobile-edit-controls{display:none}
 }
+
+/* V23: 4 Seiten Auswahl */
+.side-btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.switch-btn:disabled{opacity:.45;cursor:not-allowed;background:#f1f5f9;color:#94a3b8}

@@ -60,3 +60,8 @@ create policy "Anfragen Admin löschen"
 on public.requests for delete
 to authenticated
 using (true);
+
+
+-- V23: optionale Produktbilder für Ärmel
+alter table public.products add column if not exists image_left_sleeve text;
+alter table public.products add column if not exists image_right_sleeve text;

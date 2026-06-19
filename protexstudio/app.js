@@ -7,8 +7,21 @@ let selectedCategory = "";
 let currentSide = "front";
 let requestItems = [];
 let selectedItemId = null;
-let designState = { front: [], back: [] };
+let designState = createEmptyDesignState();
 let dragState = null;
+
+const SIDES = ["front", "back", "leftSleeve", "rightSleeve"];
+const SIDE_LABELS = {front:"Vorderseite", back:"Rückseite", leftSleeve:"Linker Ärmel", rightSleeve:"Rechter Ärmel"};
+function createEmptyDesignState(){return {front:[],back:[],leftSleeve:[],rightSleeve:[]};}
+function getSideLabel(side){return SIDE_LABELS[side]||side;}
+function getSideImage(product,side){
+  if(!product)return "";
+  if(side==="back")return product.imgBack||"";
+  if(side==="leftSleeve")return product.imgLeftSleeve||"";
+  if(side==="rightSleeve")return product.imgRightSleeve||"";
+  return product.imgFront||"";
+}
+function sideHasImage(product,side){return !!getSideImage(product,side);}
 
 const pImg = document.getElementById("product-img");
 const cTitle = document.getElementById("curr-title");
@@ -69,6 +82,8 @@ function bindEvents(){
   document.getElementById("send-order-btn").addEventListener("click",sendOrder);
   document.getElementById("front-btn").addEventListener("click",()=>setSide("front"));
   document.getElementById("back-btn").addEventListener("click",()=>setSide("back"));
+  document.getElementById("left-sleeve-btn").addEventListener("click",()=>setSide("leftSleeve"));
+  document.getElementById("right-sleeve-btn").addEventListener("click",()=>setSide("rightSleeve"));
   canvas.addEventListener("click", e=>{
     if(e.target === canvas || e.target === pImg || e.target === layer){
       selectedItemId = null;
@@ -228,7 +243,7 @@ function selectProduct(index){
   currentProductIndex=index;
   const p=filteredProducts[index];
   currentSide="front";
-  designState={front:[],back:[]};
+  designState=createEmptyDesignState();
   selectedItemId=null;
   pImg.src=p.imgFront;
   pImg.onload=()=>renderDesignItems();
@@ -278,16 +293,27 @@ function updateTotal(){
 function setSide(side){
   const p=filteredProducts[currentProductIndex];
   if(!p)return;
+
+  if(!sideHasImage(p,side)){
+    const fallback=SIDES.find(s=>sideHasImage(p,s))||"front";
+    side=fallback;
+  }
+
   currentSide=side;
-  if(side==="back"&&p.imgBack)pImg.src=p.imgBack;
-  else{currentSide="front";pImg.src=p.imgFront;}
-  document.getElementById("front-btn").classList.toggle("active",currentSide==="front");
-  document.getElementById("back-btn").classList.toggle("active",currentSide==="back");
-  document.getElementById("back-btn").disabled=!p.imgBack;
+  pImg.src=getSideImage(p,currentSide);
+
+  SIDES.forEach(s=>{
+    const btn=document.getElementById(s==="leftSleeve"?"left-sleeve-btn":s==="rightSleeve"?"right-sleeve-btn":s+"-btn");
+    if(btn){
+      btn.classList.toggle("active",currentSide===s);
+      btn.disabled=!sideHasImage(p,s);
+      btn.title=btn.disabled?"Für diese Seite wurde kein Produktbild hinterlegt":"";
+    }
+  });
+
   selectedItemId=null;
   renderDesignItems();
 }
-
 function addDesignItem(item){
   const items=designState[currentSide];
   items.push({
@@ -481,7 +507,6 @@ function centerSelectedHorizontal(){
 
 function cloneState(obj){return JSON.parse(JSON.stringify(obj));}
 
-function getSideLabel(side){return side==="front"?"Vorderseite":"Rückseite";}
 
 function addCurrentProductToRequest(){
   const prod=filteredProducts[currentProductIndex];
@@ -496,7 +521,7 @@ function addCurrentProductToRequest(){
     desc:prod.desc||"",
     category:prod.category||"",
     quantities,
-    productImages:{front:prod.imgFront,back:prod.imgBack},
+    productImages:{front:prod.imgFront,back:prod.imgBack,leftSleeve:prod.imgLeftSleeve,rightSleeve:prod.imgRightSleeve},
     designs:clonedDesigns,
     designTexts:designTextSummary(clonedDesigns),
     originalFiles:originalFilesFromDesigns(clonedDesigns,prod.title)
@@ -507,15 +532,12 @@ function addCurrentProductToRequest(){
 function removeRequestItem(index){requestItems.splice(index,1);renderRequestList();}
 
 function designSummary(designs){
-  const front=(designs.front||[]).length;
-  const back=(designs.back||[]).length;
-  return "Vorne: "+front+" Element(e), Hinten: "+back+" Element(e)";
+  return SIDES.map(side=>getSideLabel(side)+": "+((designs?.[side]||[]).length)+" Element(e)").join(", ");
 }
-
 
 function designTextSummary(designs){
   const out=[];
-  ["front","back"].forEach(side=>{
+  SIDES.forEach(side=>{
     (designs?.[side]||[]).forEach(d=>{
       if(d.type==="text" && d.text){
         out.push(getSideLabel(side)+": "+d.text);
@@ -527,7 +549,7 @@ function designTextSummary(designs){
 
 function originalFilesFromDesigns(designs, productTitle){
   const files=[];
-  ["front","back"].forEach(side=>{
+  SIDES.forEach(side=>{
     (designs?.[side]||[]).forEach((d,idx)=>{
       if(d.type==="image" && d.originalContent){
         files.push({
@@ -586,7 +608,13 @@ function buildMailText(){
 
 function createSideBlob(item,side){
   return new Promise((resolve,reject)=>{
-    const imageUrl=side==="back"&&item.productImages.back?item.productImages.back:item.productImages.front;
+    const imageUrl=getSideImage({
+      imgFront:item.productImages.front,
+      imgBack:item.productImages.back,
+      imgLeftSleeve:item.productImages.leftSleeve,
+      imgRightSleeve:item.productImages.rightSleeve
+    },side);
+    if(!imageUrl){reject(new Error("Für "+getSideLabel(side)+" wurde kein Produktbild hinterlegt."));return;}
     const productImage=new Image();
     productImage.crossOrigin="anonymous";
     productImage.onload=function(){
@@ -602,16 +630,13 @@ function createSideBlob(item,side){
 
       const items=item.designs[side]||[];
       let chain=Promise.resolve();
-      items.forEach(d=>{
-        chain=chain.then(()=>drawDesign(ctx,canvasExport,d));
-      });
+      items.forEach(d=>{chain=chain.then(()=>drawDesign(ctx,canvasExport,d));});
       chain.then(()=>canvasExport.toBlob(blob=>blob?resolve(blob):reject(new Error("Layout konnte nicht erstellt werden.")),"image/jpeg",.86));
     };
     productImage.onerror=()=>reject(new Error("Produktbild konnte nicht geladen werden."));
     productImage.src=imageUrl;
   });
 }
-
 function drawDesign(ctx,canvas,d){
   return new Promise(resolve=>{
     const x=d.relX*canvas.width;
@@ -641,8 +666,8 @@ async function downloadAllRequestDesignImages(){
   if(!requestItems.length){alert("Bitte zuerst ein Produkt zur Anfrage hinzufügen.");return;}
   let fileIndex=1;
   for(const item of requestItems){
-    for(const side of ["front","back"]){
-      if(side==="back" && !item.productImages.back && !(item.designs.back||[]).length) continue;
+    for(const side of SIDES){
+      if(!item.productImages[side] && !(item.designs[side]||[]).length) continue;
       const blob=await createSideBlob(item,side);
       triggerBlobDownload(blob,"layout-"+fileIndex+"-"+slugify(item.title)+"-"+side+".jpg");
       fileIndex++;
@@ -677,9 +702,9 @@ async function sendOrder(){
     const layoutImages=[];
     let fileIndex=1;
     for(const item of requestItems){
-      for(const side of ["front","back"]){
+      for(const side of SIDES){
         if(fileIndex>5) break;
-        if(side==="back" && !item.productImages.back && !(item.designs.back||[]).length) continue;
+        if(!item.productImages[side] && !(item.designs[side]||[]).length) continue;
         const blob=await createSideBlob(item,side);
         layoutImages.push({
           filename:"layout-"+fileIndex+"-"+slugify(item.title)+"-"+side+".jpg",
@@ -720,7 +745,7 @@ async function sendOrder(){
   quantities: item.quantities || [],
   designTexts: item.designTexts || [],
   designSummary: designSummary(item.designs),
-  designs: item.designs || { front: [], back: [] }
+  designs: item.designs || createEmptyDesignState()
 }));
 
 const {error}=await supabaseClient.from("requests").insert({

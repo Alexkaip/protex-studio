@@ -1,4 +1,7 @@
 let supabaseClient,session=null,products=[],categories=[],requests=[];
+const SIDES=["front","back","leftSleeve","rightSleeve"];
+const SIDE_LABELS={front:"Vorderseite",back:"Rückseite",leftSleeve:"Linker Ärmel",rightSleeve:"Rechter Ärmel"};
+function sideLabel(side){return SIDE_LABELS[side]||side;}
 
 document.addEventListener("DOMContentLoaded",init);
 
@@ -190,6 +193,8 @@ function resetForm(){
   document.getElementById("p-sizes").value="S,M,L,XL,XXL";
   document.getElementById("p-front").value="";
   document.getElementById("p-back").value="";
+  document.getElementById("p-left-sleeve").value="";
+  document.getElementById("p-right-sleeve").value="";
   document.getElementById("p-active").checked=true;
 }
 
@@ -208,12 +213,14 @@ async function saveProduct(){
   status.textContent="Speichern...";
   try{
     const id=document.getElementById("edit-id").value,old=id?products.find(p=>String(p.id)===String(id)):null;
-    const frontFile=document.getElementById("p-front").files[0],backFile=document.getElementById("p-back").files[0];
-    let imgFront=old?.imgFront||"",imgBack=old?.imgBack||"";
+    const frontFile=document.getElementById("p-front").files[0],backFile=document.getElementById("p-back").files[0],leftFile=document.getElementById("p-left-sleeve").files[0],rightFile=document.getElementById("p-right-sleeve").files[0];
+    let imgFront=old?.imgFront||"",imgBack=old?.imgBack||"",imgLeftSleeve=old?.imgLeftSleeve||"",imgRightSleeve=old?.imgRightSleeve||"";
     if(frontFile)imgFront=await uploadFile(frontFile,"front");
     if(backFile)imgBack=await uploadFile(backFile,"back");
+    if(leftFile)imgLeftSleeve=await uploadFile(leftFile,"left-sleeve");
+    if(rightFile)imgRightSleeve=await uploadFile(rightFile,"right-sleeve");
     if(!imgFront)throw new Error("Bitte ein Vorderseitenbild hochladen.");
-    const product={title:document.getElementById("p-title").value.trim(),category:document.getElementById("p-category").value.trim(),desc:document.getElementById("p-desc").value.trim(),price:document.getElementById("p-price").value.trim(),sizes:splitList(document.getElementById("p-sizes").value),imgFront,imgBack,active:document.getElementById("p-active").checked};
+    const product={title:document.getElementById("p-title").value.trim(),category:document.getElementById("p-category").value.trim(),desc:document.getElementById("p-desc").value.trim(),price:document.getElementById("p-price").value.trim(),sizes:splitList(document.getElementById("p-sizes").value),imgFront,imgBack,imgLeftSleeve,imgRightSleeve,active:document.getElementById("p-active").checked};
     if(!product.title)throw new Error("Produktname fehlt.");
     if(product.category && !categories.includes(product.category)){
       await supabaseClient.from("categories").upsert({name:product.category},{onConflict:"name"});
@@ -345,7 +352,7 @@ function showRequestDetail(r){
 
   items.forEach((item,idx)=>{
     const qty=(item.quantities||[]).map(q=>escapeHtml(q.size)+": "+escapeHtml(q.qty)).join(", ")||"-";
-    const designs=item.designs||{front:[],back:[]};
+    const designs=item.designs||{front:[],back:[],leftSleeve:[],rightSleeve:[]};
 
     html+='<div class="request-detail-item">';
     html+='<strong>'+(idx+1)+'. '+escapeHtml(item.title||"-")+'</strong><br>';
@@ -356,12 +363,12 @@ function showRequestDetail(r){
     html+='<br><strong>Texte / Schriftinfos:</strong>';
     let hasText=false;
 
-    ["front","back"].forEach(side=>{
+    SIDES.forEach(side=>{
       (designs[side]||[]).forEach(d=>{
         if(d.type==="text" && d.text){
           hasText=true;
           html+='<div style="margin-top:8px;padding:8px;border:1px solid #dbe3ee;border-radius:8px;background:#fff">';
-          html+='<strong>'+(side==="front"?"Vorderseite":"Rückseite")+'</strong><br>';
+          html+='<strong>'+(sideLabel(side))+'</strong><br>';
           html+='Text: '+escapeHtml(d.text)+'<br>';
           html+='Schriftart: '+escapeHtml(d.font||"-")+'<br>';
           html+='Farbe: '+escapeHtml(d.color||"-")+'<br>';
@@ -397,11 +404,11 @@ function showRequestDetail(r){
       grafiken:[]
     };
 
-    ["front","back"].forEach(side=>{
+    SIDES.forEach(side=>{
       (designs[side]||[]).forEach(d=>{
         if(d.type==="text"){
           designData.texte.push({
-            seite:side==="front"?"Vorderseite":"Rückseite",
+            seite:sideLabel(side),
             text:d.text||"",
             schriftart:d.font||"",
             farbe:d.color||"",
@@ -413,7 +420,7 @@ function showRequestDetail(r){
         }
         if(d.type==="image"){
           designData.grafiken.push({
-            seite:side==="front"?"Vorderseite":"Rückseite",
+            seite:sideLabel(side),
             datei:d.originalName||"",
             position_x:d.relX||"",
             position_y:d.relY||"",
