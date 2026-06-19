@@ -1,4 +1,4 @@
-let supabaseClient,session=null,products=[],categories=[],requests=[],quantityDiscountTiers=[],couponCodes=[],visitorStats={total:0,today:0,last7:0};
+let supabaseClient,session=null,products=[],categories=[],requests=[],quantityDiscountTiers=[],couponCodes=[],visitorStats={total:0,today:0,last7:0},printCostPerPosition=5;
 const SIDES=["front","back","leftSleeve","rightSleeve"];
 const SIDE_LABELS={front:"Vorderseite",back:"Rückseite",leftSleeve:"Linker Ärmel",rightSleeve:"Rechter Ärmel"};
 function sideLabel(side){return SIDE_LABELS[side]||side;}
@@ -50,6 +50,12 @@ function bindEvents(){
   if(toggleCoupons)toggleCoupons.addEventListener("click",()=>toggleCouponPanel());
   const closeCoupons=document.getElementById("close-coupons-btn");
   if(closeCoupons)closeCoupons.addEventListener("click",()=>toggleCouponPanel(false));
+  const togglePrintCost=document.getElementById("toggle-printcost-btn");
+  if(togglePrintCost)togglePrintCost.addEventListener("click",()=>togglePrintCostPanel());
+  const closePrintCost=document.getElementById("close-printcost-btn");
+  if(closePrintCost)closePrintCost.addEventListener("click",()=>togglePrintCostPanel(false));
+  const savePrintCost=document.getElementById("save-printcost-btn");
+  if(savePrintCost)savePrintCost.addEventListener("click",savePrintCostSettings);
   const toggleStats=document.getElementById("toggle-stats-btn");
   if(toggleStats)toggleStats.addEventListener("click",()=>toggleStatsPanel());
   const closeStats=document.getElementById("close-stats-btn");
@@ -78,6 +84,17 @@ function toggleCouponPanel(force){
   panel.classList.toggle("hidden",!show);
   if(show){
     renderCouponSettings();
+    setTimeout(()=>panel.scrollIntoView({behavior:"smooth",block:"start"}),50);
+  }
+}
+
+function togglePrintCostPanel(force){
+  const panel=document.getElementById("printcost-panel");
+  if(!panel)return;
+  const show=typeof force==="boolean"?force:panel.classList.contains("hidden");
+  panel.classList.toggle("hidden",!show);
+  if(show){
+    renderPrintCostSettings();
     setTimeout(()=>panel.scrollIntoView({behavior:"smooth",block:"start"}),50);
   }
 }
@@ -112,14 +129,14 @@ async function updateLoginState(){
     document.getElementById("login-card").classList.add("hidden");
     document.getElementById("admin-area").classList.remove("hidden");
     document.getElementById("logout-btn").classList.remove("hidden");
-    ["toggle-discounts-btn","toggle-coupons-btn","toggle-stats-btn"].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.remove("hidden");});
+    ["toggle-discounts-btn","toggle-coupons-btn","toggle-printcost-btn","toggle-stats-btn"].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.remove("hidden");});
     await loadAll();
   }else{
     document.getElementById("login-card").classList.remove("hidden");
     document.getElementById("admin-area").classList.add("hidden");
     document.getElementById("logout-btn").classList.add("hidden");
-    ["toggle-discounts-btn","toggle-coupons-btn","toggle-stats-btn"].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.add("hidden");});
-    ["discount-panel","coupon-panel","stats-panel"].forEach(id=>{const panel=document.getElementById(id);if(panel)panel.classList.add("hidden");});
+    ["toggle-discounts-btn","toggle-coupons-btn","toggle-printcost-btn","toggle-stats-btn"].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.add("hidden");});
+    ["discount-panel","coupon-panel","printcost-panel","stats-panel"].forEach(id=>{const panel=document.getElementById(id);if(panel)panel.classList.add("hidden");});
   }
 }
 
@@ -128,6 +145,7 @@ async function loadAll(){
   await loadCategories();
   await loadDiscountSettings();
   await loadCouponSettings();
+  await loadPrintCostSettings();
   await loadVisitorStats(false);
   renderCategorySelect();
   renderCategoryList();
@@ -287,6 +305,45 @@ async function saveCouponSettings(){
     couponCodes=rows;
     renderCouponSettings();
     if(status)status.textContent='Gutscheincodes gespeichert.';
+  }catch(err){
+    if(status)status.textContent=err.message;
+  }
+}
+
+function normalizePrintCost(value){
+  if(value && typeof value === 'object') value=value.price_per_print ?? value.price ?? value.amount ?? value.value;
+  const n=Number(String(value ?? 5).replace(',','.'));
+  return Number.isFinite(n) && n>=0 ? n : 5;
+}
+
+async function loadPrintCostSettings(){
+  try{
+    const {data,error}=await supabaseClient.from('settings').select('value').eq('key','print_cost_per_position').maybeSingle();
+    if(error)throw error;
+    printCostPerPosition=normalizePrintCost(data?.value);
+  }catch(err){
+    printCostPerPosition=5;
+    showWarning('Hinweis: Druckkosten konnten nicht geladen werden. Bitte SQL aus supabase-setup-v18.sql ausführen. '+err.message);
+  }
+}
+
+function renderPrintCostSettings(){
+  const input=document.getElementById('print-cost-input');
+  if(input)input.value=String(printCostPerPosition).replace('.',',');
+}
+
+async function savePrintCostSettings(){
+  const status=document.getElementById('printcost-save-status');
+  if(status)status.textContent='Speichern...';
+  try{
+    const input=document.getElementById('print-cost-input');
+    const value=Number(String(input?.value||'0').replace(',','.'))||0;
+    if(value<0)throw new Error('Bitte einen gültigen Betrag eingeben.');
+    const {error}=await supabaseClient.from('settings').upsert({key:'print_cost_per_position',value:{price_per_print:value},updated_at:new Date().toISOString()},{onConflict:'key'});
+    if(error)throw error;
+    printCostPerPosition=value;
+    renderPrintCostSettings();
+    if(status)status.textContent='Druckkosten gespeichert.';
   }catch(err){
     if(status)status.textContent=err.message;
   }
@@ -575,6 +632,10 @@ function showRequestDetail(r){
   if(pricing){
     html+='<div class="discount-box"><strong>Preis / Rabatt</strong><br>';
     html+='Gesamtmenge: '+escapeHtml(pricing.totalQty||0)+' Stück<br>';
+    html+='Produktpreis: € '+formatPrice(pricing.productSubtotal||0)+'<br>';
+    html+='Druckpositionen: '+escapeHtml(pricing.totalPrintPositions||0)+'<br>';
+    html+='Druckkosten pro Druck: € '+formatPrice(pricing.printCostPerPosition||0)+'<br>';
+    html+='Druckkosten gesamt: € '+formatPrice(pricing.printCostAmount||0)+'<br>';
     html+='Warenwert: € '+formatPrice(pricing.subtotal||0)+'<br>';
     html+='Mengenrabatt: '+escapeHtml(pricing.quantityDiscountRate||0)+'% (-€ '+formatPrice(pricing.quantityDiscountAmount||0)+')<br>';
     html+='Zwischensumme: € '+formatPrice(pricing.afterQuantity||0)+'<br>';

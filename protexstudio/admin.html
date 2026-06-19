@@ -2,7 +2,7 @@
 <html lang="de">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Protex Online Admin</title><link rel="stylesheet" href="style.css"></head>
 <body>
-<header class="header container"><div><div class="brand">Protex Online Admin</div><div class="sub">Produkte & Kategorien live pflegen</div></div><div class="btn-row admin-top-actions"><a class="btn btn-light" href="index.html">Kundenansicht</a><button class="btn btn-light hidden" id="toggle-discounts-btn" type="button">Mengenrabatte</button><button class="btn btn-light hidden" id="toggle-coupons-btn" type="button">Gutscheincodes</button><button class="btn btn-light hidden" id="toggle-stats-btn" type="button">Besucher</button><button class="btn btn-secondary" id="logout-btn" type="button">Logout</button></div></header>
+<header class="header container"><div><div class="brand">Protex Online Admin</div><div class="sub">Produkte & Kategorien live pflegen</div></div><div class="btn-row admin-top-actions"><a class="btn btn-light" href="index.html">Kundenansicht</a><button class="btn btn-light hidden" id="toggle-discounts-btn" type="button">Mengenrabatte</button><button class="btn btn-light hidden" id="toggle-coupons-btn" type="button">Gutscheincodes</button><button class="btn btn-light hidden" id="toggle-printcost-btn" type="button">Druckkosten</button><button class="btn btn-light hidden" id="toggle-stats-btn" type="button">Besucher</button><button class="btn btn-secondary" id="logout-btn" type="button">Logout</button></div></header>
 <main class="container"><div id="config-warning" class="notice warn hidden"></div>
 <section id="login-card" class="card" style="max-width:460px;margin:40px auto;"><h1>Admin Login</h1><div class="form-group"><label>E-Mail</label><input type="email" id="login-email"></div><div class="form-group"><label>Passwort</label><input type="password" id="login-password"></div><button class="btn" id="login-btn" type="button">Einloggen</button><div id="login-status" class="sub" style="margin-top:10px"></div></section>
 <section id="discount-panel" class="card hidden" style="margin-bottom:14px;">
@@ -34,6 +34,24 @@
     <button class="btn" id="save-coupons-btn" type="button">Gutscheincodes speichern</button>
   </div>
   <div id="coupon-save-status" class="sub"></div>
+</section>
+<section id="printcost-panel" class="card hidden" style="margin-bottom:14px;">
+  <div class="start-head">
+    <div>
+      <h2 style="margin:0 0 6px;">Druckkosten</h2>
+      <div class="sub">Preis pro Druckposition. Text und Grafik zählen jeweils als eigener Druck und werden mit der Stückzahl multipliziert.</div>
+    </div>
+    <button class="btn btn-light" id="close-printcost-btn" type="button" style="max-width:180px;">Schließen</button>
+  </div>
+  <div class="form-group" style="max-width:360px;">
+    <label>Preis je Druck in €</label>
+    <input type="number" min="0" step="0.01" id="print-cost-input" value="5">
+  </div>
+  <div class="btn-row" style="max-width:520px;">
+    <button class="btn" id="save-printcost-btn" type="button">Druckkosten speichern</button>
+    <div></div>
+  </div>
+  <div id="printcost-save-status" class="sub"></div>
 </section>
 <section id="stats-panel" class="card hidden" style="margin-bottom:14px;">
   <div class="start-head">

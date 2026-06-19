@@ -127,3 +127,8 @@ create policy "Besucher Admin löschen"
 on public.visitor_stats for delete
 to authenticated
 using (true);
+
+-- V28: Druckkosten pro Druckposition
+insert into public.settings (key,value)
+values ('print_cost_per_position','{"price_per_print":5}'::jsonb)
+on conflict (key) do nothing;

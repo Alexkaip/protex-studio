@@ -1,11 +1,19 @@
-PROTEX Studio v27 - Gutscheincodes Admin + Besucherzähler
+PROTEX Studio v28 - Druckkosten pro Druckposition
 
 Neu:
-- eigener Admin-Button "Gutscheincodes"
-- Gutscheincodes im Admin anlegen, ändern, löschen und aktiv/inaktiv setzen
-- Kunde sieht keine Gutschein-Vorlagen, nur das leere Eingabefeld
-- eigener Admin-Button "Besucher"
-- Besucherzähler mit Gesamt, Heute und letzte 7 Tage
+- eigener Admin-Button "Druckkosten"
+- Preis je Druckposition einstellbar, Standard 5,00 €
+- Text und Grafik zählen jeweils als eigener Druck
+- Druckkosten werden mit der Stückzahl multipliziert
+- Kunde sieht Produktpreis, Druckkosten, Mengenrabatt, Gutscheincode und Endpreis
+- Druckkosten werden in der Anfrage gespeichert und im Admin angezeigt
+
+Weiter enthalten:
+- 4 Seiten: Vorderseite, Rückseite, linker Ärmel, rechter Ärmel
+- Mengenrabatte im Admin
+- Gutscheincodes im Admin
+- Besucherzähler
+- Originalgrafiken und Layoutbilder in den Anfragen
 
 Wichtig nach dem Hochladen:
 1. Dateien in GitHub wieder im richtigen Ordner protexstudio ersetzen.

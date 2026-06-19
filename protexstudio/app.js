@@ -48,6 +48,14 @@ const DEFAULT_QUANTITY_DISCOUNTS = [
   {min_qty:100, discount_percent:20}
 ];
 let quantityDiscountTiers = [...DEFAULT_QUANTITY_DISCOUNTS];
+const DEFAULT_PRINT_COST_PER_POSITION = 5;
+let printCostPerPosition = DEFAULT_PRINT_COST_PER_POSITION;
+
+function normalizePrintCost(value){
+  if(value && typeof value === 'object') value = value.price_per_print ?? value.price ?? value.amount ?? value.value;
+  const n = Number(String(value ?? DEFAULT_PRINT_COST_PER_POSITION).replace(',', '.'));
+  return Number.isFinite(n) && n >= 0 ? n : DEFAULT_PRINT_COST_PER_POSITION;
+}
 
 function normalizeDiscountTiers(value){
   const rows=Array.isArray(value)?value:DEFAULT_QUANTITY_DISCOUNTS;
@@ -59,17 +67,20 @@ function normalizeDiscountTiers(value){
 
 async function loadDiscountSettings(){
   try{
-    const {data,error}=await supabaseClient.from('settings').select('key,value').in('key',['quantity_discounts','coupon_codes']);
+    const {data,error}=await supabaseClient.from('settings').select('key,value').in('key',['quantity_discounts','coupon_codes','print_cost_per_position']);
     if(error)throw error;
     const rows=data||[];
     const quantityRow=rows.find(r=>r.key==='quantity_discounts');
     const couponRow=rows.find(r=>r.key==='coupon_codes');
+    const printCostRow=rows.find(r=>r.key==='print_cost_per_position');
     quantityDiscountTiers=normalizeDiscountTiers(quantityRow?.value);
     couponCodes=normalizeCouponCodes(couponRow?.value);
+    printCostPerPosition=normalizePrintCost(printCostRow?.value);
   }catch(err){
     console.warn('Rabatte konnten nicht aus Supabase geladen werden:',err.message);
     quantityDiscountTiers=[...DEFAULT_QUANTITY_DISCOUNTS];
     couponCodes=[...DEFAULT_COUPON_CODES];
+    printCostPerPosition=DEFAULT_PRINT_COST_PER_POSITION;
   }
 }
 
@@ -106,13 +117,25 @@ function getVoucherInfo(){
   return {code,rate,valid:rate>0,message:rate>0?("✓ Gutscheincode gültig (-"+rate+"%)"):("✗ Gutscheincode ungültig")};
 }
 
+function countPrintPositions(item){
+  const designs=item?.designs||createEmptyDesignState();
+  return SIDES.reduce((sum,side)=>sum+(designs[side]||[]).filter(d=>d.type==="text" || d.type==="image").length,0);
+}
+
+function itemQuantity(item){
+  return (item?.quantities||[]).reduce((s,q)=>s+(parseInt(q.qty,10)||0),0);
+}
+
 function calculatePricing(items){
-  const totalQty=(items||[]).reduce((sum,item)=>sum+(item.quantities||[]).reduce((s,q)=>s+(parseInt(q.qty,10)||0),0),0);
-  const subtotal=(items||[]).reduce((sum,item)=>{
-    const qty=(item.quantities||[]).reduce((s,q)=>s+(parseInt(q.qty,10)||0),0);
+  const totalQty=(items||[]).reduce((sum,item)=>sum+itemQuantity(item),0);
+  const productSubtotal=(items||[]).reduce((sum,item)=>{
+    const qty=itemQuantity(item);
     const price=Number(String(item.price||0).replace(",","."))||0;
     return sum + qty * price;
   },0);
+  const totalPrintPositions=(items||[]).reduce((sum,item)=>sum+countPrintPositions(item),0);
+  const printCostAmount=(items||[]).reduce((sum,item)=>sum + itemQuantity(item) * countPrintPositions(item) * printCostPerPosition,0);
+  const subtotal=productSubtotal + printCostAmount;
   const quantityDiscountRate=getQuantityDiscountRate(totalQty);
   const quantityDiscountAmount=subtotal*quantityDiscountRate/100;
   const afterQuantity=subtotal-quantityDiscountAmount;
@@ -120,12 +143,14 @@ function calculatePricing(items){
   const voucherDiscountRate=voucher.valid ? voucher.rate : 0;
   const voucherDiscountAmount=afterQuantity*voucherDiscountRate/100;
   const total=afterQuantity-voucherDiscountAmount;
-  return {totalQty,subtotal,quantityDiscountRate,quantityDiscountAmount,afterQuantity,voucherCode:voucher.code,voucherValid:voucher.valid,voucherDiscountRate,voucherDiscountAmount,total};
+  return {totalQty,productSubtotal,totalPrintPositions,printCostPerPosition,printCostAmount,subtotal,quantityDiscountRate,quantityDiscountAmount,afterQuantity,voucherCode:voucher.code,voucherValid:voucher.valid,voucherDiscountRate,voucherDiscountAmount,total};
 }
 
 function renderPricingHtml(pricing,title){
   return '<div class="pricing-title">'+title+'</div>'+ 
     '<div>Gesamtmenge: <strong>'+pricing.totalQty+' Stück</strong></div>'+ 
+    '<div>Produktpreis: <strong>€ '+formatPrice(pricing.productSubtotal||0)+'</strong></div>'+ 
+    '<div>Druckkosten: <strong>€ '+formatPrice(pricing.printCostAmount||0)+'</strong> ('+(pricing.totalPrintPositions||0)+' Druck(e) × € '+formatPrice(pricing.printCostPerPosition||0)+' × Stückzahl)</div>'+ 
     '<div>Warenwert: <strong>€ '+formatPrice(pricing.subtotal)+'</strong></div>'+ 
     '<div>Mengenrabatt: <strong>'+pricing.quantityDiscountRate+'%</strong> (-€ '+formatPrice(pricing.quantityDiscountAmount)+')</div>'+ 
     '<div>Zwischensumme: <strong>€ '+formatPrice(pricing.afterQuantity)+'</strong></div>'+ 
@@ -137,7 +162,7 @@ function renderPricingHtml(pricing,title){
 function getCurrentPricingItems(){
   const prod=filteredProducts[currentProductIndex];
   if(!prod) return [];
-  return [{price:prod.price,quantities:getQuantities()}];
+  return [{price:prod.price,quantities:getQuantities(),designs:designState}];
 }
 
 const pImg = document.getElementById("product-img");
@@ -461,6 +486,7 @@ function addDesignItem(item){
   });
   selectedItemId=items[items.length-1].id;
   renderDesignItems();
+  updateTotal();
 }
 
 function handleLogoUpload(e){
@@ -497,6 +523,7 @@ function deleteSelectedItem(){
   designState[currentSide]=designState[currentSide].filter(i=>i.id!==selectedItemId);
   selectedItemId=null;
   renderDesignItems();
+  updateTotal();
 }
 
 function resetCurrentSide(){
@@ -504,6 +531,7 @@ function resetCurrentSide(){
   designState[currentSide]=[];
   selectedItemId=null;
   renderDesignItems();
+  updateTotal();
 }
 
 function renderDesignItems(){
@@ -736,6 +764,10 @@ function buildMailText(){
   const pricing=calculatePricing(requestItems);
   const rabattText="PREIS / RABATT:\n"+
     "- Gesamtmenge: "+pricing.totalQty+" Stück\n"+
+    "- Produktpreis: € "+formatPrice(pricing.productSubtotal||0)+"\n"+
+    "- Druckpositionen: "+(pricing.totalPrintPositions||0)+"\n"+
+    "- Druckkosten pro Druck: € "+formatPrice(pricing.printCostPerPosition||0)+"\n"+
+    "- Druckkosten gesamt: € "+formatPrice(pricing.printCostAmount||0)+"\n"+
     "- Warenwert: € "+formatPrice(pricing.subtotal)+"\n"+
     "- Mengenrabatt: "+pricing.quantityDiscountRate+"% (-€ "+formatPrice(pricing.quantityDiscountAmount)+")\n"+
     "- Zwischensumme: € "+formatPrice(pricing.afterQuantity)+"\n"+
@@ -888,6 +920,9 @@ async function sendOrder(){
   quantities: item.quantities || [],
   designTexts: item.designTexts || [],
   designSummary: designSummary(item.designs),
+  printPositions: countPrintPositions(item),
+  printCostPerPosition: printCostPerPosition,
+  printCostTotal: itemQuantity(item) * countPrintPositions(item) * printCostPerPosition,
   designs: item.designs || createEmptyDesignState()
 }));
 
