@@ -91,7 +91,7 @@ async function recordVisit(){
       path:window.location.pathname||'/',
       user_agent:(navigator.userAgent||'').slice(0,300)
     };
-    await supabaseClient.from('visitor_stats').insert(payload);
+    await supabaseClient.from('visits').insert(payload);
   }catch(err){
     console.warn('Besucherzähler konnte nicht geschrieben werden:',err.message);
   }
@@ -952,20 +952,6 @@ const {error}=await supabaseClient.from("requests").insert({
     alert("Speichern fehlgeschlagen: "+error.message+"\\n\\nBitte prüfe, ob die Supabase Tabelle requests angelegt wurde.");
   }finally{
     sendBtn.disabled=false;sendBtn.textContent="Anfrage speichern";
-	async function trackVisit(){
-  try{
-    if(!supabaseClient) return;
-
-    await supabaseClient.from("visits").insert({
-      path: window.location.pathname || "/",
-      user_agent: navigator.userAgent || ""
-    });
-  }catch(err){
-    console.warn("Besucherzähler konnte nicht gespeichert werden:", err.message);
-  }
 }
-
-setTimeout(trackVisit, 1200);
-  }
 }
 

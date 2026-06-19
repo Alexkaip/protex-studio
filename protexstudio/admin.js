@@ -358,9 +358,9 @@ async function loadVisitorStats(updateStatus=true){
     const startToday=new Date(now.getFullYear(),now.getMonth(),now.getDate()).toISOString();
     const start7=new Date(now.getTime()-7*24*60*60*1000).toISOString();
     const [totalRes,todayRes,last7Res]=await Promise.all([
-      supabaseClient.from('visitor_stats').select('id',{count:'exact',head:true}),
-      supabaseClient.from('visitor_stats').select('id',{count:'exact',head:true}).gte('created_at',startToday),
-      supabaseClient.from('visitor_stats').select('id',{count:'exact',head:true}).gte('created_at',start7)
+      supabaseClient.from('visits').select('id',{count:'exact',head:true}),
+      supabaseClient.from('visits').select('id',{count:'exact',head:true}).gte('created_at',startToday),
+      supabaseClient.from('visits').select('id',{count:'exact',head:true}).gte('created_at',start7)
     ]);
     if(totalRes.error)throw totalRes.error;
     if(todayRes.error)throw todayRes.error;
@@ -385,7 +385,7 @@ async function clearVisitorStats(){
   const status=document.getElementById('visitor-stats-status');
   if(status)status.textContent='Zähler wird gelöscht...';
   try{
-    const {error}=await supabaseClient.from('visitor_stats').delete().neq('id',0);
+    const {error}=await supabaseClient.from('visits').delete().neq('id',0);
     if(error)throw error;
     await loadVisitorStats(false);
     if(status)status.textContent='Besucherzähler gelöscht.';
