@@ -334,52 +334,53 @@ function renderRequests(){
 function showRequestDetail(r){
   const detail=document.getElementById("admin-request-detail");
   const items=r.order_data?.items||[];
+
   let html='<h3>Anfrage</h3>';
   html+='<div class="sub">'+formatDate(r.created_at)+' · '+(r.status||"Neu")+'</div>';
   html+='<p><strong>Kunde:</strong> '+escapeHtml(r.customer_email||"-")+'</p>';
   html+='<button class="btn btn-danger" id="detail-delete-request-btn" type="button">Anfrage löschen</button>';
   html+='<p><strong>Anmerkung:</strong><br>'+escapeHtml(r.note||"-").replaceAll("\\n","<br>")+'</p>';
+
   html+='<h3>Produkte</h3>';
+
   items.forEach((item,idx)=>{
     const qty=(item.quantities||[]).map(q=>escapeHtml(q.size)+": "+escapeHtml(q.qty)).join(", ")||"-";
-    html+='<div class="request-detail-item"><strong>'+(idx+1)+'. '+escapeHtml(item.title||"-")+'</strong><br>';
+    const designs=item.designs||{front:[],back:[]};
+
+    html+='<div class="request-detail-item">';
+    html+='<strong>'+(idx+1)+'. '+escapeHtml(item.title||"-")+'</strong><br>';
     html+='<span class="sub">'+escapeHtml(item.category||"-")+' · € '+escapeHtml(item.price||"")+'</span><br>';
-    html+='Menge: '+qty+'<br>Design: '+escapeHtml(item.designSummary||"-");
+    html+='Menge: '+qty+'<br>';
+    html+='Design: '+escapeHtml(item.designSummary||"-")+'<br>';
 
-const textItems=[];
-["front","back"].forEach(side=>{
-  (item.designs?.[side]||[]).forEach(d=>{
-    if(d.type==="text" && d.text){
-      textItems.push({
-        side: side==="front" ? "Vorderseite" : "Rückseite",
-        text: d.text,
-        color: d.color || "",
-        font: d.font || "",
-        fontSize: d.fontSize || "",
-        x: d.relX || "",
-        y: d.relY || ""
+    html+='<br><strong>Texte / Schriftinfos:</strong>';
+    let hasText=false;
+
+    ["front","back"].forEach(side=>{
+      (designs[side]||[]).forEach(d=>{
+        if(d.type==="text" && d.text){
+          hasText=true;
+          html+='<div style="margin-top:8px;padding:8px;border:1px solid #dbe3ee;border-radius:8px;background:#fff">';
+          html+='<strong>'+(side==="front"?"Vorderseite":"Rückseite")+'</strong><br>';
+          html+='Text: '+escapeHtml(d.text)+'<br>';
+          html+='Schriftart: '+escapeHtml(d.font||"-")+'<br>';
+          html+='Farbe: '+escapeHtml(d.color||"-")+'<br>';
+          html+='Schriftgröße: '+escapeHtml(d.fontSize||"-")+'<br>';
+          html+='Position X: '+escapeHtml(d.relX||"-")+'<br>';
+          html+='Position Y: '+escapeHtml(d.relY||"-")+'<br>';
+          html+='Breite: '+escapeHtml(d.relW||"-");
+          html+='</div>';
+        }
       });
+    });
+
+    if(!hasText){
+      html+='<br><span class="sub">Keine Texte vorhanden.</span>';
     }
-  });
-});
 
-if(textItems.length){
-  html+='<br><br><strong>Texte:</strong>';
-  textItems.forEach(t=>{
-    html+='<br>• '+escapeHtml(t.side)+': "'+escapeHtml(t.text)+'"';
-    html+='<br>&nbsp;&nbsp;Schrift: '+escapeHtml(t.font || "-");
-    html+='<br>&nbsp;&nbsp;Farbe: '+escapeHtml(t.color || "-");
-    html+='<br>&nbsp;&nbsp;Größe: '+escapeHtml(t.fontSize || "-");
-    html+='<br>&nbsp;&nbsp;Position: X '+escapeHtml(t.x)+' / Y '+escapeHtml(t.y);
-  });
-}
-
-html+='</div>';
-    const texts=item.designTexts||[];
-    if(texts.length){html+='<br><strong>Texte:</strong><br>'+texts.map(t=>escapeHtml(t)).join('<br>');}
     const itemFiles=item.originalFiles||[];
     if(itemFiles.length){
-      html+='<br><strong>Originalgrafiken:</strong><div class="request-images">';
+      html+='<br><br><strong>Originalgrafiken:</strong><div class="request-images">';
       itemFiles.forEach((file,i)=>{
         const mime=escapeHtml(file.mime||"application/octet-stream");
         const filename=escapeHtml(file.filename||("grafik-"+(i+1)));
@@ -387,8 +388,47 @@ html+='</div>';
       });
       html+='</div>';
     }
+
+    const designData={
+      produkt:item.title||"",
+      kategorie:item.category||"",
+      mengen:item.quantities||[],
+      texte:[],
+      grafiken:[]
+    };
+
+    ["front","back"].forEach(side=>{
+      (designs[side]||[]).forEach(d=>{
+        if(d.type==="text"){
+          designData.texte.push({
+            seite:side==="front"?"Vorderseite":"Rückseite",
+            text:d.text||"",
+            schriftart:d.font||"",
+            farbe:d.color||"",
+            schriftgroesse:d.fontSize||"",
+            position_x:d.relX||"",
+            position_y:d.relY||"",
+            breite:d.relW||""
+          });
+        }
+        if(d.type==="image"){
+          designData.grafiken.push({
+            seite:side==="front"?"Vorderseite":"Rückseite",
+            datei:d.originalName||"",
+            position_x:d.relX||"",
+            position_y:d.relY||"",
+            breite:d.relW||""
+          });
+        }
+      });
+    });
+
+    const json=encodeURIComponent(JSON.stringify(designData,null,2));
+    html+='<br><br><a class="btn btn-light" download="design-daten-'+escapeHtml(item.title||"produkt")+'.json" href="data:application/json;charset=utf-8,'+json+'">Design-Daten ohne Produktbild herunterladen</a>';
+
     html+='</div>';
   });
+
   const uploadedFiles=r.order_data?.uploaded_files||[];
   if(uploadedFiles.length){
     html+='<h3>Original hochgeladene Grafiken</h3><div class="request-images">';
@@ -400,6 +440,7 @@ html+='</div>';
     });
     html+='</div>';
   }
+
   if((r.layout_images||[]).length){
     html+='<h3>Layoutbilder</h3><div class="request-images">';
     (r.layout_images||[]).forEach((img,i)=>{
@@ -407,7 +448,9 @@ html+='</div>';
     });
     html+='</div>';
   }
+
   detail.innerHTML=html;
+
   const delBtn=document.getElementById("detail-delete-request-btn");
   if(delBtn)delBtn.addEventListener("click",()=>deleteRequest(r.id));
 }
