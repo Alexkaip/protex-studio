@@ -1,6 +1,0 @@
--- Protex Studio v26 Seitenbilder optional
--- In Supabase > SQL Editor einfügen und Run klicken.
-
-alter table products
-add column if not exists image_left text,
-add column if not exists image_right text;
