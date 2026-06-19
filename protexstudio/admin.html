@@ -8,6 +8,12 @@
 <section id="admin-area" class="admin-layout hidden">
 <div class="card">
 <h2>Kategorien</h2><div class="btn-row"><input type="text" id="new-category" placeholder="z.B. T-Shirt, Hose, Serien"><button class="btn btn-light" id="add-category-btn" type="button">Hinzufügen</button></div><div id="category-list" class="category-list"></div>
+<h2>Mengenrabatte</h2>
+<div class="notice">Diese Staffel sieht der Kunde im Konfigurator. Beispiel: ab 10 Stück = 5% Rabatt.</div>
+<div id="discount-settings-list" class="discount-settings-list"></div>
+<button class="btn btn-light" id="add-discount-row-btn" type="button">Rabattzeile hinzufügen</button>
+<button class="btn" id="save-discounts-btn" type="button">Mengenrabatte speichern</button>
+<div id="discount-save-status" class="sub"></div>
 <h2 id="form-title">Produkt anlegen</h2><input type="hidden" id="edit-id">
 <div class="form-group"><label>Produktname</label><input type="text" id="p-title"></div>
 <div class="form-group"><label>Kategorie</label><select id="p-category"></select></div>

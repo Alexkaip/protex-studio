@@ -31,12 +31,42 @@ const COUPON_CODES = {
   SPONSOR40: 40
 };
 
+const DEFAULT_QUANTITY_DISCOUNTS = [
+  {min_qty:10, discount_percent:5},
+  {min_qty:25, discount_percent:10},
+  {min_qty:50, discount_percent:15},
+  {min_qty:100, discount_percent:20}
+];
+let quantityDiscountTiers = [...DEFAULT_QUANTITY_DISCOUNTS];
+
+function normalizeDiscountTiers(value){
+  const rows=Array.isArray(value)?value:DEFAULT_QUANTITY_DISCOUNTS;
+  return rows.map(r=>({
+    min_qty:parseInt(r.min_qty ?? r.minQty ?? r.qty ?? 0,10)||0,
+    discount_percent:Number(String(r.discount_percent ?? r.discount ?? r.percent ?? 0).replace(',','.'))||0
+  })).filter(r=>r.min_qty>0 && r.discount_percent>0).sort((a,b)=>a.min_qty-b.min_qty);
+}
+
+async function loadDiscountSettings(){
+  try{
+    const {data,error}=await supabaseClient.from('settings').select('value').eq('key','quantity_discounts').maybeSingle();
+    if(error)throw error;
+    quantityDiscountTiers=normalizeDiscountTiers(data?.value);
+  }catch(err){
+    console.warn('Mengenrabatte konnten nicht aus Supabase geladen werden:',err.message);
+    quantityDiscountTiers=[...DEFAULT_QUANTITY_DISCOUNTS];
+  }
+}
+
 function getQuantityDiscountRate(qty){
-  if(qty >= 100) return 20;
-  if(qty >= 50) return 15;
-  if(qty >= 25) return 10;
-  if(qty >= 10) return 5;
-  return 0;
+  let rate=0;
+  quantityDiscountTiers.forEach(t=>{ if(qty>=t.min_qty) rate=t.discount_percent; });
+  return rate;
+}
+
+function renderDiscountTiers(){
+  if(!quantityDiscountTiers.length)return '';
+  return '<div class="discount-tier-list"><strong>Mengenrabatte:</strong> '+quantityDiscountTiers.map(t=>'ab '+t.min_qty+' Stk -'+t.discount_percent+'%').join(' · ')+'</div>';
 }
 
 function getVoucherInfo(){
@@ -71,7 +101,8 @@ function renderPricingHtml(pricing,title){
     '<div>Mengenrabatt: <strong>'+pricing.quantityDiscountRate+'%</strong> (-€ '+formatPrice(pricing.quantityDiscountAmount)+')</div>'+ 
     '<div>Zwischensumme: <strong>€ '+formatPrice(pricing.afterQuantity)+'</strong></div>'+ 
     '<div>Gutscheincode: <strong>'+(pricing.voucherCode||'-')+'</strong> '+(pricing.voucherDiscountRate?('(-'+pricing.voucherDiscountRate+'%)'):'')+'</div>'+ 
-    '<div class="pricing-final">Endpreis: € '+formatPrice(pricing.total)+'</div>';
+    '<div class="pricing-final">Endpreis: € '+formatPrice(pricing.total)+'</div>'+
+    renderDiscountTiers();
 }
 
 function getCurrentPricingItems(){
@@ -102,6 +133,7 @@ async function init(){
   bindEvents();
   try{
     supabaseClient = getSupabaseClient();
+    await loadDiscountSettings();
     await loadProducts();
     await loadCategories();
   }catch(err){

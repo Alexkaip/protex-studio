@@ -1,4 +1,4 @@
-let supabaseClient,session=null,products=[],categories=[],requests=[];
+let supabaseClient,session=null,products=[],categories=[],requests=[],quantityDiscountTiers=[];
 const SIDES=["front","back","leftSleeve","rightSleeve"];
 const SIDE_LABELS={front:"Vorderseite",back:"Rückseite",leftSleeve:"Linker Ärmel",rightSleeve:"Rechter Ärmel"};
 function sideLabel(side){return SIDE_LABELS[side]||side;}
@@ -34,6 +34,10 @@ function bindEvents(){
   document.getElementById("add-category-btn").addEventListener("click",addCategory);
   const reloadRequests=document.getElementById("reload-requests-btn");
   if(reloadRequests)reloadRequests.addEventListener("click",loadRequests);
+  const addDiscountRow=document.getElementById("add-discount-row-btn");
+  if(addDiscountRow)addDiscountRow.addEventListener("click",()=>{quantityDiscountTiers.push({min_qty:"",discount_percent:""});renderDiscountSettings();});
+  const saveDiscounts=document.getElementById("save-discounts-btn");
+  if(saveDiscounts)saveDiscounts.addEventListener("click",saveDiscountSettings);
 }
 
 async function login(){
@@ -66,8 +70,10 @@ async function updateLoginState(){
 async function loadAll(){
   await loadProducts();
   await loadCategories();
+  await loadDiscountSettings();
   renderCategorySelect();
   renderCategoryList();
+  renderDiscountSettings();
   renderProducts();
   await loadRequests();
 }
@@ -112,6 +118,61 @@ function renderCategoryList(){
     chip.querySelector("button").addEventListener("click",()=>removeCategory(c));
     list.appendChild(chip);
   });
+}
+
+function normalizeDiscountTiers(value){
+  const defaults=[{min_qty:10,discount_percent:5},{min_qty:25,discount_percent:10},{min_qty:50,discount_percent:15},{min_qty:100,discount_percent:20}];
+  const rows=Array.isArray(value)?value:defaults;
+  return rows.map(r=>({
+    min_qty:parseInt(r.min_qty ?? r.minQty ?? r.qty ?? 0,10)||0,
+    discount_percent:Number(String(r.discount_percent ?? r.discount ?? r.percent ?? 0).replace(',','.'))||0
+  })).filter(r=>r.min_qty>0 && r.discount_percent>0).sort((a,b)=>a.min_qty-b.min_qty);
+}
+
+async function loadDiscountSettings(){
+  try{
+    const {data,error}=await supabaseClient.from('settings').select('value').eq('key','quantity_discounts').maybeSingle();
+    if(error)throw error;
+    quantityDiscountTiers=normalizeDiscountTiers(data?.value);
+  }catch(err){
+    quantityDiscountTiers=normalizeDiscountTiers();
+    showWarning('Hinweis: Tabelle settings fehlt oder ist nicht freigegeben. Bitte SQL aus supabase-setup-v18.sql ausführen. '+err.message);
+  }
+}
+
+function renderDiscountSettings(){
+  const list=document.getElementById('discount-settings-list');
+  if(!list)return;
+  list.innerHTML='';
+  if(!quantityDiscountTiers.length)quantityDiscountTiers=[{min_qty:10,discount_percent:5},{min_qty:25,discount_percent:10},{min_qty:50,discount_percent:15},{min_qty:100,discount_percent:20}];
+  quantityDiscountTiers.forEach((tier,idx)=>{
+    const row=document.createElement('div');
+    row.className='discount-settings-row';
+    row.innerHTML='<label>ab Stück</label><input type="number" min="1" class="discount-min" value="'+escapeHtml(tier.min_qty)+'"><label>Rabatt %</label><input type="number" min="0" max="100" step="0.1" class="discount-percent" value="'+escapeHtml(tier.discount_percent)+'"><button type="button" class="delete-btn">×</button>';
+    row.querySelector('.discount-min').addEventListener('input',()=>{quantityDiscountTiers[idx].min_qty=row.querySelector('.discount-min').value;});
+    row.querySelector('.discount-percent').addEventListener('input',()=>{quantityDiscountTiers[idx].discount_percent=row.querySelector('.discount-percent').value;});
+    row.querySelector('.delete-btn').addEventListener('click',()=>{quantityDiscountTiers.splice(idx,1);renderDiscountSettings();});
+    list.appendChild(row);
+  });
+}
+
+async function saveDiscountSettings(){
+  const status=document.getElementById('discount-save-status');
+  if(status)status.textContent='Speichern...';
+  try{
+    const rows=[...document.querySelectorAll('.discount-settings-row')].map(row=>({
+      min_qty:parseInt(row.querySelector('.discount-min').value,10)||0,
+      discount_percent:Number(String(row.querySelector('.discount-percent').value).replace(',','.'))||0
+    })).filter(r=>r.min_qty>0 && r.discount_percent>0).sort((a,b)=>a.min_qty-b.min_qty);
+    if(!rows.length)throw new Error('Bitte mindestens eine Rabattzeile eintragen.');
+    const {error}=await supabaseClient.from('settings').upsert({key:'quantity_discounts',value:rows,updated_at:new Date().toISOString()},{onConflict:'key'});
+    if(error)throw error;
+    quantityDiscountTiers=rows;
+    renderDiscountSettings();
+    if(status)status.textContent='Mengenrabatte gespeichert.';
+  }catch(err){
+    if(status)status.textContent=err.message;
+  }
 }
 
 async function addCategory(){

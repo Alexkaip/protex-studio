@@ -1,31 +1,20 @@
-PROTEX Projekt v24 - 4 Seiten + Mengenrabatt + Gutscheincodes
+PROTEX Projekt v25 - Mengenrabatte einstellbar + Gutscheincode ohne Vorlage
 
-Neu in V24:
-- Mengenrabatt automatisch nach Gesamtstückzahl:
-  ab 10 Stück = 5 %
-  ab 25 Stück = 10 %
-  ab 50 Stück = 15 %
-  ab 100 Stück = 20 %
-- Gutscheincodes:
-  PROTEX10 = 10 %
-  VIP20 = 20 %
-  VEREIN30 = 30 %
-  SPONSOR40 = 40 %
-- Berechnung: Warenwert -> Mengenrabatt -> Gutscheincode -> Endpreis
-- Rabattdaten werden in der Anfrage gespeichert.
-- Rabattdaten werden im Admin angezeigt.
+Neu:
+- Mengenrabatte sind im Admin einstellbar.
+- Kunde sieht die aktuelle Mengenrabatt-Staffel im Konfigurator.
+- Gutscheincode-Feld zeigt keine Beispielcodes mehr an.
+- Bestehende Gutscheincodes bleiben aktiv:
+  PROTEX10 = 10%
+  VIP20 = 20%
+  VEREIN30 = 30%
+  SPONSOR40 = 40%
+- Rabattdaten werden in der Anfrage gespeichert und im Admin angezeigt.
 
-Bestehende Funktionen bleiben enthalten:
-- Kategorien
-- 4 Seiten: Vorderseite, Rückseite, linker Ärmel, rechter Ärmel
-- Seite nur aktiv, wenn Bild im Admin vorhanden ist
-- Mobile Steuerung
-- Mehr Schriftarten
-- Originalgrafiken und Layoutbilder in der Anfrage
-- Texte mit Schriftart, Farbe, Position im Admin
+WICHTIG:
+Nach dem Hochladen bitte in Supabase die Datei supabase-setup-v18.sql erneut ausführen.
+Dadurch wird die Tabelle settings für die einstellbaren Mengenrabatte angelegt.
 
-Wichtig:
-- Dateien im GitHub-Ordner protexstudio ersetzen.
-- Vercel Deployment abwarten bis Ready.
-- Danach STRG + F5 im Browser.
-- Für V24 ist keine neue SQL-Datei nötig, wenn V23/V18 schon funktioniert.
+Upload:
+Alle Dateien in GitHub im Ordner protexstudio ersetzen.
+Danach Vercel Deployment abwarten und mit STRG+F5 neu laden.
