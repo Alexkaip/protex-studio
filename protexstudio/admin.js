@@ -38,6 +38,21 @@ function bindEvents(){
   if(addDiscountRow)addDiscountRow.addEventListener("click",()=>{quantityDiscountTiers.push({min_qty:"",discount_percent:""});renderDiscountSettings();});
   const saveDiscounts=document.getElementById("save-discounts-btn");
   if(saveDiscounts)saveDiscounts.addEventListener("click",saveDiscountSettings);
+  const toggleDiscounts=document.getElementById("toggle-discounts-btn");
+  if(toggleDiscounts)toggleDiscounts.addEventListener("click",()=>toggleDiscountPanel());
+  const closeDiscounts=document.getElementById("close-discounts-btn");
+  if(closeDiscounts)closeDiscounts.addEventListener("click",()=>toggleDiscountPanel(false));
+}
+
+function toggleDiscountPanel(force){
+  const panel=document.getElementById("discount-panel");
+  if(!panel)return;
+  const show=typeof force==="boolean"?force:panel.classList.contains("hidden");
+  panel.classList.toggle("hidden",!show);
+  if(show){
+    renderDiscountSettings();
+    setTimeout(()=>panel.scrollIntoView({behavior:"smooth",block:"start"}),50);
+  }
 }
 
 async function login(){
@@ -59,11 +74,17 @@ async function updateLoginState(){
     document.getElementById("login-card").classList.add("hidden");
     document.getElementById("admin-area").classList.remove("hidden");
     document.getElementById("logout-btn").classList.remove("hidden");
+    const tdb=document.getElementById("toggle-discounts-btn");
+    if(tdb)tdb.classList.remove("hidden");
     await loadAll();
   }else{
     document.getElementById("login-card").classList.remove("hidden");
     document.getElementById("admin-area").classList.add("hidden");
     document.getElementById("logout-btn").classList.add("hidden");
+    const tdb=document.getElementById("toggle-discounts-btn");
+    if(tdb)tdb.classList.add("hidden");
+    const panel=document.getElementById("discount-panel");
+    if(panel)panel.classList.add("hidden");
   }
 }
 
