@@ -670,14 +670,29 @@ async function sendOrder(){
     });
 
     status.textContent="Anfrage wird im Admin gespeichert...";
-    const {error}=await supabaseClient.from("requests").insert({
-      customer_email:clientEmail,
-      note:notes,
-      mail_text:mailText,
-      order_data:{items:cleanItems,total_items:cleanItems.length,uploaded_files:uploadedFiles},
-      layout_images:layoutImages,
-      status:"Neu"
-    });
+   const cleanItems = requestItems.map(item => ({
+  title: item.title,
+  price: item.price,
+  desc: item.desc || "",
+  category: item.category || "",
+  quantities: item.quantities || [],
+  designTexts: item.designTexts || [],
+  designSummary: designSummary(item.designs),
+  designs: item.designs || { front: [], back: [] }
+}));
+
+const {error}=await supabaseClient.from("requests").insert({
+  customer_email: clientEmail,
+  note: notes,
+  mail_text: mailText,
+  order_data: {
+    items: cleanItems,
+    total_items: cleanItems.length,
+    uploaded_files: uploadedFiles
+  },
+  layout_images: layoutImages,
+  status: "Neu"
+});
     if(error)throw error;
 
     status.textContent="Danke! Anfrage wurde gespeichert.";
