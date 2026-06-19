@@ -86,11 +86,10 @@ async function loadDiscountSettings(){
 
 async function recordVisit(){
   try{
-    const payload={
-      page:'customer',
-      path:window.location.pathname||'/',
-      user_agent:(navigator.userAgent||'').slice(0,300)
-    };
+   const payload={
+  path:window.location.pathname||'/',
+  user_agent:(navigator.userAgent||'').slice(0,300)
+};
     await supabaseClient.from('visits').insert(payload);
   }catch(err){
     console.warn('Besucherzähler konnte nicht geschrieben werden:',err.message);
