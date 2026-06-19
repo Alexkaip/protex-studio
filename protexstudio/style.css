@@ -151,3 +151,18 @@ input[type=file]{width:100%;border:1px dashed #e2e8f0;background:#f8fafc;border-
 .discount-settings-row label{margin:0;font-size:.85rem;white-space:nowrap}
 .discount-settings-row input{padding:9px}
 @media(max-width:900px){.admin-top-actions{min-width:0;grid-template-columns:1fr}.discount-settings-row{grid-template-columns:1fr 1fr}.discount-settings-row .delete-btn{grid-column:1/-1;width:100%}}
+
+
+/* V27: Gutscheincodes + Besucherzähler */
+.admin-top-actions{min-width:760px;grid-template-columns:repeat(5,1fr)}
+.coupon-settings-list{display:grid;gap:8px;margin:12px 0}
+.coupon-settings-row{display:grid;grid-template-columns:auto 160px auto 120px 90px 44px;gap:8px;align-items:center;background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:8px}
+.coupon-settings-row label{margin:0;font-size:.85rem;white-space:nowrap}
+.coupon-settings-row input[type=text],.coupon-settings-row input[type=number]{padding:9px}
+.coupon-active-label{display:flex!important;align-items:center;gap:6px;font-weight:900}
+.coupon-settings-row .delete-btn{border:none;border-radius:8px;padding:9px;background:#fee2e2;color:#b91c1c;font-weight:900;cursor:pointer}
+.visitor-stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}
+.stat-card{background:#f8fafc;border:1px solid var(--border);border-radius:14px;padding:16px;text-align:center}
+.stat-card strong{display:block;font-size:2rem;color:var(--primary)}
+.stat-card span{color:var(--muted);font-weight:800}
+@media(max-width:900px){.admin-top-actions{min-width:0;grid-template-columns:1fr}.coupon-settings-row{grid-template-columns:1fr 1fr}.coupon-settings-row .coupon-active-label,.coupon-settings-row .delete-btn{grid-column:1/-1}.visitor-stats-grid{grid-template-columns:1fr}}

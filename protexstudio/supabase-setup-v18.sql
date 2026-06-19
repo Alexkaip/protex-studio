@@ -92,3 +92,38 @@ with check (true);
 insert into public.settings (key,value)
 values ('quantity_discounts','[{"min_qty":10,"discount_percent":5},{"min_qty":25,"discount_percent":10},{"min_qty":50,"discount_percent":15},{"min_qty":100,"discount_percent":20}]'::jsonb)
 on conflict (key) do nothing;
+
+
+-- V27: Gutscheincodes im Admin verwalten
+insert into public.settings (key,value)
+values ('coupon_codes','[{"code":"PROTEX10","discount_percent":10,"active":true},{"code":"VIP20","discount_percent":20,"active":true},{"code":"VEREIN30","discount_percent":30,"active":true},{"code":"SPONSOR40","discount_percent":40,"active":true}]'::jsonb)
+on conflict (key) do nothing;
+
+-- V27: Besucherzähler für Kundenansicht
+create table if not exists public.visitor_stats (
+  id bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  page text default 'customer',
+  path text,
+  user_agent text
+);
+
+alter table public.visitor_stats enable row level security;
+
+drop policy if exists "Besucher öffentlich erstellen" on public.visitor_stats;
+create policy "Besucher öffentlich erstellen"
+on public.visitor_stats for insert
+to anon, authenticated
+with check (true);
+
+drop policy if exists "Besucher Admin lesen" on public.visitor_stats;
+create policy "Besucher Admin lesen"
+on public.visitor_stats for select
+to authenticated
+using (true);
+
+drop policy if exists "Besucher Admin löschen" on public.visitor_stats;
+create policy "Besucher Admin löschen"
+on public.visitor_stats for delete
+to authenticated
+using (true);

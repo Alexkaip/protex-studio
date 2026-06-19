@@ -1,4 +1,4 @@
-let supabaseClient,session=null,products=[],categories=[],requests=[],quantityDiscountTiers=[];
+let supabaseClient,session=null,products=[],categories=[],requests=[],quantityDiscountTiers=[],couponCodes=[],visitorStats={total:0,today:0,last7:0};
 const SIDES=["front","back","leftSleeve","rightSleeve"];
 const SIDE_LABELS={front:"Vorderseite",back:"Rückseite",leftSleeve:"Linker Ärmel",rightSleeve:"Rechter Ärmel"};
 function sideLabel(side){return SIDE_LABELS[side]||side;}
@@ -42,6 +42,22 @@ function bindEvents(){
   if(toggleDiscounts)toggleDiscounts.addEventListener("click",()=>toggleDiscountPanel());
   const closeDiscounts=document.getElementById("close-discounts-btn");
   if(closeDiscounts)closeDiscounts.addEventListener("click",()=>toggleDiscountPanel(false));
+  const addCouponRow=document.getElementById("add-coupon-row-btn");
+  if(addCouponRow)addCouponRow.addEventListener("click",()=>{couponCodes.push({code:"",discount_percent:"",active:true});renderCouponSettings();});
+  const saveCoupons=document.getElementById("save-coupons-btn");
+  if(saveCoupons)saveCoupons.addEventListener("click",saveCouponSettings);
+  const toggleCoupons=document.getElementById("toggle-coupons-btn");
+  if(toggleCoupons)toggleCoupons.addEventListener("click",()=>toggleCouponPanel());
+  const closeCoupons=document.getElementById("close-coupons-btn");
+  if(closeCoupons)closeCoupons.addEventListener("click",()=>toggleCouponPanel(false));
+  const toggleStats=document.getElementById("toggle-stats-btn");
+  if(toggleStats)toggleStats.addEventListener("click",()=>toggleStatsPanel());
+  const closeStats=document.getElementById("close-stats-btn");
+  if(closeStats)closeStats.addEventListener("click",()=>toggleStatsPanel(false));
+  const reloadStats=document.getElementById("reload-stats-btn");
+  if(reloadStats)reloadStats.addEventListener("click",loadVisitorStats);
+  const clearStats=document.getElementById("clear-stats-btn");
+  if(clearStats)clearStats.addEventListener("click",clearVisitorStats);
 }
 
 function toggleDiscountPanel(force){
@@ -51,6 +67,28 @@ function toggleDiscountPanel(force){
   panel.classList.toggle("hidden",!show);
   if(show){
     renderDiscountSettings();
+    setTimeout(()=>panel.scrollIntoView({behavior:"smooth",block:"start"}),50);
+  }
+}
+
+function toggleCouponPanel(force){
+  const panel=document.getElementById("coupon-panel");
+  if(!panel)return;
+  const show=typeof force==="boolean"?force:panel.classList.contains("hidden");
+  panel.classList.toggle("hidden",!show);
+  if(show){
+    renderCouponSettings();
+    setTimeout(()=>panel.scrollIntoView({behavior:"smooth",block:"start"}),50);
+  }
+}
+
+function toggleStatsPanel(force){
+  const panel=document.getElementById("stats-panel");
+  if(!panel)return;
+  const show=typeof force==="boolean"?force:panel.classList.contains("hidden");
+  panel.classList.toggle("hidden",!show);
+  if(show){
+    loadVisitorStats();
     setTimeout(()=>panel.scrollIntoView({behavior:"smooth",block:"start"}),50);
   }
 }
@@ -74,17 +112,14 @@ async function updateLoginState(){
     document.getElementById("login-card").classList.add("hidden");
     document.getElementById("admin-area").classList.remove("hidden");
     document.getElementById("logout-btn").classList.remove("hidden");
-    const tdb=document.getElementById("toggle-discounts-btn");
-    if(tdb)tdb.classList.remove("hidden");
+    ["toggle-discounts-btn","toggle-coupons-btn","toggle-stats-btn"].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.remove("hidden");});
     await loadAll();
   }else{
     document.getElementById("login-card").classList.remove("hidden");
     document.getElementById("admin-area").classList.add("hidden");
     document.getElementById("logout-btn").classList.add("hidden");
-    const tdb=document.getElementById("toggle-discounts-btn");
-    if(tdb)tdb.classList.add("hidden");
-    const panel=document.getElementById("discount-panel");
-    if(panel)panel.classList.add("hidden");
+    ["toggle-discounts-btn","toggle-coupons-btn","toggle-stats-btn"].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.add("hidden");});
+    ["discount-panel","coupon-panel","stats-panel"].forEach(id=>{const panel=document.getElementById(id);if(panel)panel.classList.add("hidden");});
   }
 }
 
@@ -92,9 +127,12 @@ async function loadAll(){
   await loadProducts();
   await loadCategories();
   await loadDiscountSettings();
+  await loadCouponSettings();
+  await loadVisitorStats(false);
   renderCategorySelect();
   renderCategoryList();
   renderDiscountSettings();
+  renderCouponSettings();
   renderProducts();
   await loadRequests();
 }
@@ -150,6 +188,16 @@ function normalizeDiscountTiers(value){
   })).filter(r=>r.min_qty>0 && r.discount_percent>0).sort((a,b)=>a.min_qty-b.min_qty);
 }
 
+function normalizeCouponCodes(value){
+  const defaults=[{code:"PROTEX10",discount_percent:10,active:true},{code:"VIP20",discount_percent:20,active:true},{code:"VEREIN30",discount_percent:30,active:true},{code:"SPONSOR40",discount_percent:40,active:true}];
+  const rows=Array.isArray(value)?value:defaults;
+  return rows.map(r=>({
+    code:String(r.code||"").trim().toUpperCase(),
+    discount_percent:Number(String(r.discount_percent ?? r.discount ?? r.percent ?? 0).replace(',','.'))||0,
+    active:r.active!==false
+  })).filter(r=>r.code && r.discount_percent>0).sort((a,b)=>a.code.localeCompare(b.code));
+}
+
 async function loadDiscountSettings(){
   try{
     const {data,error}=await supabaseClient.from('settings').select('value').eq('key','quantity_discounts').maybeSingle();
@@ -191,6 +239,99 @@ async function saveDiscountSettings(){
     quantityDiscountTiers=rows;
     renderDiscountSettings();
     if(status)status.textContent='Mengenrabatte gespeichert.';
+  }catch(err){
+    if(status)status.textContent=err.message;
+  }
+}
+
+async function loadCouponSettings(){
+  try{
+    const {data,error}=await supabaseClient.from('settings').select('value').eq('key','coupon_codes').maybeSingle();
+    if(error)throw error;
+    couponCodes=normalizeCouponCodes(data?.value);
+  }catch(err){
+    couponCodes=normalizeCouponCodes();
+    showWarning('Hinweis: Gutscheincodes konnten nicht geladen werden. Bitte SQL aus supabase-setup-v18.sql ausführen. '+err.message);
+  }
+}
+
+function renderCouponSettings(){
+  const list=document.getElementById('coupon-settings-list');
+  if(!list)return;
+  list.innerHTML='';
+  if(!couponCodes.length)couponCodes=normalizeCouponCodes();
+  couponCodes.forEach((coupon,idx)=>{
+    const row=document.createElement('div');
+    row.className='coupon-settings-row';
+    row.innerHTML='<label>Code</label><input type="text" class="coupon-code" value="'+escapeHtml(coupon.code)+'" placeholder="z.B. PROTEX10"><label>Rabatt %</label><input type="number" min="0" max="100" step="0.1" class="coupon-percent" value="'+escapeHtml(coupon.discount_percent)+'"><label class="coupon-active-label"><input type="checkbox" class="coupon-active" '+(coupon.active!==false?'checked':'')+'> Aktiv</label><button type="button" class="delete-btn">×</button>';
+    row.querySelector('.coupon-code').addEventListener('input',()=>{couponCodes[idx].code=row.querySelector('.coupon-code').value.toUpperCase();});
+    row.querySelector('.coupon-percent').addEventListener('input',()=>{couponCodes[idx].discount_percent=row.querySelector('.coupon-percent').value;});
+    row.querySelector('.coupon-active').addEventListener('change',()=>{couponCodes[idx].active=row.querySelector('.coupon-active').checked;});
+    row.querySelector('.delete-btn').addEventListener('click',()=>{couponCodes.splice(idx,1);renderCouponSettings();});
+    list.appendChild(row);
+  });
+}
+
+async function saveCouponSettings(){
+  const status=document.getElementById('coupon-save-status');
+  if(status)status.textContent='Speichern...';
+  try{
+    const rows=[...document.querySelectorAll('.coupon-settings-row')].map(row=>({
+      code:String(row.querySelector('.coupon-code').value||'').trim().toUpperCase(),
+      discount_percent:Number(String(row.querySelector('.coupon-percent').value).replace(',','.'))||0,
+      active:row.querySelector('.coupon-active').checked
+    })).filter(r=>r.code && r.discount_percent>0).sort((a,b)=>a.code.localeCompare(b.code));
+    if(!rows.length)throw new Error('Bitte mindestens einen Gutscheincode eintragen.');
+    const {error}=await supabaseClient.from('settings').upsert({key:'coupon_codes',value:rows,updated_at:new Date().toISOString()},{onConflict:'key'});
+    if(error)throw error;
+    couponCodes=rows;
+    renderCouponSettings();
+    if(status)status.textContent='Gutscheincodes gespeichert.';
+  }catch(err){
+    if(status)status.textContent=err.message;
+  }
+}
+
+async function loadVisitorStats(updateStatus=true){
+  const box=document.getElementById('visitor-stats-box');
+  const status=document.getElementById('visitor-stats-status');
+  if(updateStatus && status)status.textContent='Besucher werden geladen...';
+  try{
+    const now=new Date();
+    const startToday=new Date(now.getFullYear(),now.getMonth(),now.getDate()).toISOString();
+    const start7=new Date(now.getTime()-7*24*60*60*1000).toISOString();
+    const [totalRes,todayRes,last7Res]=await Promise.all([
+      supabaseClient.from('visitor_stats').select('id',{count:'exact',head:true}),
+      supabaseClient.from('visitor_stats').select('id',{count:'exact',head:true}).gte('created_at',startToday),
+      supabaseClient.from('visitor_stats').select('id',{count:'exact',head:true}).gte('created_at',start7)
+    ]);
+    if(totalRes.error)throw totalRes.error;
+    if(todayRes.error)throw todayRes.error;
+    if(last7Res.error)throw last7Res.error;
+    visitorStats={total:totalRes.count||0,today:todayRes.count||0,last7:last7Res.count||0};
+    renderVisitorStats();
+    if(status)status.textContent='';
+  }catch(err){
+    if(box)box.innerHTML='<div class="notice warn">Besucherzähler konnte nicht geladen werden. Bitte SQL ausführen.<br>'+escapeHtml(err.message)+'</div>';
+    if(status)status.textContent='';
+  }
+}
+
+function renderVisitorStats(){
+  const box=document.getElementById('visitor-stats-box');
+  if(!box)return;
+  box.innerHTML='<div class="stat-card"><strong>'+visitorStats.total+'</strong><span>Gesamt</span></div><div class="stat-card"><strong>'+visitorStats.today+'</strong><span>Heute</span></div><div class="stat-card"><strong>'+visitorStats.last7+'</strong><span>Letzte 7 Tage</span></div>';
+}
+
+async function clearVisitorStats(){
+  if(!confirm('Besucherzähler wirklich löschen?'))return;
+  const status=document.getElementById('visitor-stats-status');
+  if(status)status.textContent='Zähler wird gelöscht...';
+  try{
+    const {error}=await supabaseClient.from('visitor_stats').delete().neq('id',0);
+    if(error)throw error;
+    await loadVisitorStats(false);
+    if(status)status.textContent='Besucherzähler gelöscht.';
   }catch(err){
     if(status)status.textContent=err.message;
   }

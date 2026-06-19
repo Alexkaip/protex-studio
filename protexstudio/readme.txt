@@ -1,10 +1,14 @@
-PROTEX Studio V26 - Mengenrabatte eigener Button
+PROTEX Studio v27 - Gutscheincodes Admin + Besucherzähler
 
 Neu:
-- Mengenrabatte sind im Admin nicht mehr beim Produktanlegen.
-- Eigener Button oben: Mengenrabatte.
-- Kunde sieht Mengenrabatte weiterhin im Konfigurator.
-- Gutscheincode-Hinweis bleibt ohne sichtbare Code-Beispiele.
+- eigener Admin-Button "Gutscheincodes"
+- Gutscheincodes im Admin anlegen, ändern, löschen und aktiv/inaktiv setzen
+- Kunde sieht keine Gutschein-Vorlagen, nur das leere Eingabefeld
+- eigener Admin-Button "Besucher"
+- Besucherzähler mit Gesamt, Heute und letzte 7 Tage
 
-Upload in GitHub in den Ordner protexstudio.
-Supabase SQL bei Bedarf ausführen: supabase-setup-v18.sql
+Wichtig nach dem Hochladen:
+1. Dateien in GitHub wieder im richtigen Ordner protexstudio ersetzen.
+2. Vercel Deployment abwarten bis Ready.
+3. In Supabase die Datei supabase-setup-v18.sql erneut im SQL Editor ausführen.
+4. Admin und Kundenansicht mit STRG + F5 neu laden.

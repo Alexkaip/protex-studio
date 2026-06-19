@@ -24,12 +24,22 @@ function getSideImage(product,side){
 function sideHasImage(product,side){return !!getSideImage(product,side);}
 
 
-const COUPON_CODES = {
-  PROTEX10: 10,
-  VIP20: 20,
-  VEREIN30: 30,
-  SPONSOR40: 40
-};
+const DEFAULT_COUPON_CODES = [
+  {code:"PROTEX10", discount_percent:10, active:true},
+  {code:"VIP20", discount_percent:20, active:true},
+  {code:"VEREIN30", discount_percent:30, active:true},
+  {code:"SPONSOR40", discount_percent:40, active:true}
+];
+let couponCodes = [...DEFAULT_COUPON_CODES];
+
+function normalizeCouponCodes(value){
+  const rows=Array.isArray(value)?value:DEFAULT_COUPON_CODES;
+  return rows.map(r=>({
+    code:String(r.code||"").trim().toUpperCase(),
+    discount_percent:Number(String(r.discount_percent ?? r.discount ?? r.percent ?? 0).replace(',','.'))||0,
+    active:r.active!==false
+  })).filter(r=>r.code && r.discount_percent>0).sort((a,b)=>a.code.localeCompare(b.code));
+}
 
 const DEFAULT_QUANTITY_DISCOUNTS = [
   {min_qty:10, discount_percent:5},
@@ -49,12 +59,30 @@ function normalizeDiscountTiers(value){
 
 async function loadDiscountSettings(){
   try{
-    const {data,error}=await supabaseClient.from('settings').select('value').eq('key','quantity_discounts').maybeSingle();
+    const {data,error}=await supabaseClient.from('settings').select('key,value').in('key',['quantity_discounts','coupon_codes']);
     if(error)throw error;
-    quantityDiscountTiers=normalizeDiscountTiers(data?.value);
+    const rows=data||[];
+    const quantityRow=rows.find(r=>r.key==='quantity_discounts');
+    const couponRow=rows.find(r=>r.key==='coupon_codes');
+    quantityDiscountTiers=normalizeDiscountTiers(quantityRow?.value);
+    couponCodes=normalizeCouponCodes(couponRow?.value);
   }catch(err){
-    console.warn('Mengenrabatte konnten nicht aus Supabase geladen werden:',err.message);
+    console.warn('Rabatte konnten nicht aus Supabase geladen werden:',err.message);
     quantityDiscountTiers=[...DEFAULT_QUANTITY_DISCOUNTS];
+    couponCodes=[...DEFAULT_COUPON_CODES];
+  }
+}
+
+async function recordVisit(){
+  try{
+    const payload={
+      page:'customer',
+      path:window.location.pathname||'/',
+      user_agent:(navigator.userAgent||'').slice(0,300)
+    };
+    await supabaseClient.from('visitor_stats').insert(payload);
+  }catch(err){
+    console.warn('Besucherzähler konnte nicht geschrieben werden:',err.message);
   }
 }
 
@@ -73,7 +101,8 @@ function getVoucherInfo(){
   const input=document.getElementById("voucher-code");
   const code=input ? input.value.trim().toUpperCase() : "";
   if(!code) return {code:"",rate:0,valid:false,message:""};
-  const rate=COUPON_CODES[code]||0;
+  const found=couponCodes.find(c=>c.active!==false && c.code===code);
+  const rate=found?found.discount_percent:0;
   return {code,rate,valid:rate>0,message:rate>0?("✓ Gutscheincode gültig (-"+rate+"%)"):("✗ Gutscheincode ungültig")};
 }
 
@@ -134,6 +163,7 @@ async function init(){
   try{
     supabaseClient = getSupabaseClient();
     await loadDiscountSettings();
+    recordVisit();
     await loadProducts();
     await loadCategories();
   }catch(err){
