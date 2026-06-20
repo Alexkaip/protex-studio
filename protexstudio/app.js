@@ -785,7 +785,7 @@ function renderRequestList(){
 
 function buildMailText(){
   const clientEmail=document.getElementById("client-email").value.trim();
-  const clientPhone = document.getElementById("client-phone")?.value.trim() || "";
+  const clientPhone=document.getElementById("client-phone")?.value.trim()||"";
   const notes=document.getElementById("client-notes").value.trim();
   let productText="";
   requestItems.forEach((item,index)=>{
