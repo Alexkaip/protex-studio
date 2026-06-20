@@ -103,7 +103,10 @@ async function recordVisit(){
 
 function getQuantityDiscountRate(qty){
   let rate=0;
-  quantityDiscountTiers.forEach(t=>{ if(qty>=t.min_qty) rate=t.discount_percent; });
+  // WICHTIG: Wenn aus Supabase keine Rabattstaffel geladen wird, nehmen wir die Standard-Staffel.
+  // Dadurch wird der Mengenrabatt trotzdem gerechnet (z.B. ab 10 Stk. 5%).
+  const tiers = (quantityDiscountTiers && quantityDiscountTiers.length) ? quantityDiscountTiers : DEFAULT_QUANTITY_DISCOUNTS;
+  tiers.forEach(t=>{ if(qty>=t.min_qty) rate=t.discount_percent; });
   return rate;
 }
 

@@ -180,3 +180,7 @@ input[type=file]{width:100%;border:1px dashed #e2e8f0;background:#f8fafc;border-
 .header{min-height:125px;}
 .header-logo{height:120px !important; width:auto !important; max-width:620px !important; object-fit:contain !important; display:block !important;}
 @media(max-width:700px){.header-logo{height:78px !important; max-width:330px !important}.header{min-height:100px;}}
+
+/* v37: Logo im Header größer anzeigen */
+.header-logo{height:95px !important;max-width:420px !important;object-fit:contain;display:block;}
+@media(max-width:700px){.header-logo{height:62px !important;max-width:220px !important;}}
