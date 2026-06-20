@@ -1,10 +1,13 @@
-PROTEX Studio v34 - Logo und Rabattfeld wirklich korrigiert
+PROTEX Studio v35 - Kostenbox und Logo Fix
 
-Änderungen:
-- Logo ist direkt in index.html eingebettet, dadurch kein Pfadproblem mehr.
-- Logo deutlich größer dargestellt.
-- Grünes Rabattfeld unter Größen/Menge ist standardmäßig versteckt.
-- Es erscheint nur, wenn wirklich ein Mengenrabatt oder gültiger Gutscheincode aktiv ist.
-- Wenn kein Rabatt aktiv ist, wird dort kein Feld angezeigt.
+Geändert:
+- Logo ist jetzt als zugeschnittene Datei assets/protex-logo.png enthalten und größer sichtbar.
+- Kostenbox zeigt Produktpreis, Druckkosten, Warenwert, Zwischensumme und Endpreis sobald eine Menge gewählt ist.
+- Text/Grafik erhöht weiterhin die Druckkosten automatisch.
+- Mengenrabatt-Zeile erscheint nur, wenn wirklich ein Mengenrabatt aktiv ist.
+- Gutschein-Rabatt erscheint nur bei gültigem Gutscheincode.
 
-Nach dem Hochladen: Vercel Deployment abwarten und STRG + F5 drücken.
+Nach Upload:
+1. Alle Dateien aus der ZIP in GitHub ersetzen.
+2. Vercel Redeploy abwarten.
+3. Browser mit STRG + F5 neu laden.

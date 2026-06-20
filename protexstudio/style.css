@@ -169,3 +169,9 @@ input[type=file]{width:100%;border:1px dashed #e2e8f0;background:#f8fafc;border-
 
 .header-logo{height:95px;max-height:none;max-width:520px;width:auto;object-fit:contain;display:block}
 @media(max-width:700px){.header-logo{height:62px;max-width:280px}.header{align-items:center}}
+
+
+/* V35: Logo wirklich größer anzeigen */
+.header-logo{height:110px !important; width:auto !important; max-width:520px !important; object-fit:contain !important; display:block !important;}
+.header{min-height:115px;}
+@media(max-width:700px){.header-logo{height:72px !important; max-width:300px !important}.header{min-height:92px;}}

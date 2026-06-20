@@ -452,13 +452,14 @@ function updateTotal(){
   const prod=filteredProducts[currentProductIndex];
   const pricing=calculatePricing(getCurrentPricingItems());
   if(box){
-    const hasActiveDiscount = pricing.quantityDiscountRate>0 || pricing.voucherDiscountRate>0;
-    if(!prod || (pricing.totalQty||0)<=0 || !hasActiveDiscount){
+    // Kostenbox immer anzeigen sobald ein Produkt mit Menge gewählt wurde.
+    // Rabatt-Zeilen kommen nur in renderPricingHtml, wenn wirklich ein Rabatt aktiv ist.
+    if(!prod || (pricing.totalQty||0)<=0){
       box.classList.add("hidden");
       box.innerHTML="";
     }else{
       box.classList.remove("hidden");
-      box.innerHTML=renderActiveDiscountHtml(pricing);
+      box.innerHTML=renderPricingHtml(pricing,"Aktuelles Produkt");
     }
   }
   const status=document.getElementById("voucher-status");
