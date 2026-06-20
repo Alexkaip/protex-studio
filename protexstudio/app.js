@@ -905,8 +905,10 @@ function blobToBase64(blob){
 }
 
 async function sendOrder(){
-  const clientEmail=document.getElementById("client-email").value.trim(),status=document.getElementById("send-status");
-  const notes=document.getElementById("client-notes").value.trim();
+  const clientEmail = document.getElementById("client-email").value.trim();
+  const clientPhone = document.getElementById("client-phone")?.value.trim() || "";
+  const notes = document.getElementById("client-notes").value.trim();
+  const status = document.getElementById("send-status");
   if(!clientEmail){alert("Bitte E-Mail angeben.");return;}
   if(!requestItems.length){alert("Bitte zuerst mindestens ein Produkt hinzufügen.");return;}
   const mailText=buildMailText(),sendBtn=document.getElementById("send-order-btn");
