@@ -625,7 +625,6 @@ function showRequestDetail(r){
   let html='<h3>Anfrage</h3>';
   html+='<div class="sub">'+formatDate(r.created_at)+' · '+(r.status||"Neu")+'</div>';
   html+='<p><strong>Kunde:</strong> '+escapeHtml(r.customer_email||"-")+'</p>';
-  html+='<p><strong>Telefon:</strong> '+escapeHtml(r.order_data?.customer_phone||"-")+'</p>';
   html+='<button class="btn btn-danger" id="detail-delete-request-btn" type="button">Anfrage löschen</button>';
   html+='<p><strong>Anmerkung:</strong><br>'+escapeHtml(r.note||"-").replaceAll("\\n","<br>")+'</p>';
 
@@ -638,7 +637,7 @@ function showRequestDetail(r){
     html+='Druckkosten pro Druck: € '+formatPrice(pricing.printCostPerPosition||0)+'<br>';
     html+='Druckkosten gesamt: € '+formatPrice(pricing.printCostAmount||0)+'<br>';
     html+='Warenwert: € '+formatPrice(pricing.subtotal||0)+'<br>';
-    if((pricing.quantityDiscountRate||0)>0) html+='Mengenrabatt: '+escapeHtml(pricing.quantityDiscountRate||0)+'% (-€ '+formatPrice(pricing.quantityDiscountAmount||0)+')<br>';
+    html+='Mengenrabatt: '+escapeHtml(pricing.quantityDiscountRate||0)+'% (-€ '+formatPrice(pricing.quantityDiscountAmount||0)+')<br>';
     html+='Zwischensumme: € '+formatPrice(pricing.afterQuantity||0)+'<br>';
     html+='Gutscheincode: '+escapeHtml(pricing.voucherCode||'-')+'<br>';
     html+='Gutscheinrabatt: '+escapeHtml(pricing.voucherDiscountRate||0)+'% (-€ '+formatPrice(pricing.voucherDiscountAmount||0)+')<br>';

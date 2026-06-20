@@ -103,9 +103,8 @@ function getQuantityDiscountRate(qty){
   return rate;
 }
 
-function renderDiscountTiers(pricing){
-  if(!quantityDiscountTiers.length || !pricing || pricing.quantityDiscountRate<=0)return '';
-  return '<div class="discount-tier-list"><strong>Mengenrabatt gewährt:</strong> -'+pricing.quantityDiscountRate+'%</div>';
+function renderDiscountTiers(){
+  return '';
 }
 
 function getVoucherInfo(){
@@ -156,7 +155,7 @@ function renderPricingHtml(pricing,title){
     '<div>Zwischensumme: <strong>€ '+formatPrice(pricing.afterQuantity)+'</strong></div>'+ 
     '<div>Gutscheincode: <strong>'+(pricing.voucherCode||'-')+'</strong> '+(pricing.voucherDiscountRate?('(-'+pricing.voucherDiscountRate+'%)'):'')+'</div>'+ 
     '<div class="pricing-final">Endpreis: € '+formatPrice(pricing.total)+'</div>'+
-    renderDiscountTiers(pricing);
+    renderDiscountTiers();
 }
 
 function getCurrentPricingItems(){
@@ -433,8 +432,17 @@ function getQuantities(){
 
 function updateTotal(){
   const box=document.getElementById("total-box");
+  const prod=filteredProducts[currentProductIndex];
   const pricing=calculatePricing(getCurrentPricingItems());
-  box.innerHTML=renderPricingHtml(pricing,"Aktuelles Produkt");
+  if(box){
+    if(!prod || (pricing.totalQty||0)<=0){
+      box.classList.add("hidden");
+      box.innerHTML="";
+    }else{
+      box.classList.remove("hidden");
+      box.innerHTML=renderPricingHtml(pricing,"Aktuelles Produkt");
+    }
+  }
   const status=document.getElementById("voucher-status");
   const voucher=getVoucherInfo();
   if(status){
@@ -770,10 +778,10 @@ function buildMailText(){
     "- Druckkosten pro Druck: € "+formatPrice(pricing.printCostPerPosition||0)+"\n"+
     "- Druckkosten gesamt: € "+formatPrice(pricing.printCostAmount||0)+"\n"+
     "- Warenwert: € "+formatPrice(pricing.subtotal)+"\n"+
-    "- Mengenrabatt: "+pricing.quantityDiscountRate+"% (-€ "+formatPrice(pricing.quantityDiscountAmount)+")\n"+
+    (pricing.quantityDiscountRate>0 ? "- Mengenrabatt: "+pricing.quantityDiscountRate+"% (-€ "+formatPrice(pricing.quantityDiscountAmount)+")\n" : "")+
     "- Zwischensumme: € "+formatPrice(pricing.afterQuantity)+"\n"+
     "- Gutscheincode: "+(pricing.voucherCode||"-")+"\n"+
-    "- Gutscheinrabatt: "+pricing.voucherDiscountRate+"% (-€ "+formatPrice(pricing.voucherDiscountAmount)+")\n"+
+    (pricing.voucherDiscountRate>0 ? "- Gutscheinrabatt: "+pricing.voucherDiscountRate+"% (-€ "+formatPrice(pricing.voucherDiscountAmount)+")\n" : "")+
     "- Endpreis: € "+formatPrice(pricing.total)+"\n\n";
   return "Hallo!\n\nich habe folgende Produkte im Konfigurator zusammengestellt.\n\nPRODUKTE / ANFRAGE:\n"+productText+
     rabattText+
@@ -868,7 +876,6 @@ function blobToBase64(blob){
 
 async function sendOrder(){
   const clientEmail=document.getElementById("client-email").value.trim(),status=document.getElementById("send-status");
-  const clientPhone=document.getElementById("client-phone")?.value.trim()||"";
   const notes=document.getElementById("client-notes").value.trim();
   if(!clientEmail){alert("Bitte E-Mail angeben.");return;}
   if(!requestItems.length){alert("Bitte zuerst mindestens ein Produkt hinzufügen.");return;}
@@ -933,7 +940,6 @@ const {error}=await supabaseClient.from("requests").insert({
   note: notes,
   mail_text: mailText,
   order_data: {
-    customer_phone: clientPhone,
     items: cleanItems,
     total_items: cleanItems.length,
     uploaded_files: uploadedFiles,
@@ -949,13 +955,26 @@ const {error}=await supabaseClient.from("requests").insert({
     requestItems=[];
     renderRequestList();
     document.getElementById("client-notes").value="";
-    const phoneInput=document.getElementById("client-phone"); if(phoneInput) phoneInput.value="";
   }catch(error){
     console.error(error);
     status.textContent="Fehler: "+error.message;
     alert("Speichern fehlgeschlagen: "+error.message+"\\n\\nBitte prüfe, ob die Supabase Tabelle requests angelegt wurde.");
   }finally{
     sendBtn.disabled=false;sendBtn.textContent="Anfrage senden";
+	async function trackVisit(){
+  try{
+    if(!supabaseClient) return;
+
+    await supabaseClient.from("visits").insert({
+      path: window.location.pathname || "/",
+      user_agent: navigator.userAgent || ""
+    });
+  }catch(err){
+    console.warn("Besucherzähler konnte nicht gespeichert werden:", err.message);
+  }
 }
+
+setTimeout(trackVisit, 1200);
+  }
 }
 
