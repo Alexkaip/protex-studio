@@ -625,6 +625,9 @@ function showRequestDetail(r){
   let html='<h3>Anfrage</h3>';
   html+='<div class="sub">'+formatDate(r.created_at)+' · '+(r.status||"Neu")+'</div>';
   html+='<p><strong>Kunde:</strong> '+escapeHtml(r.customer_email||"-")+'</p>';
+  html += '<p><strong>Telefon:</strong> ' +
+        escapeHtml(r.phone || "-") +
+        '</p>';
   html+='<button class="btn btn-danger" id="detail-delete-request-btn" type="button">Anfrage löschen</button>';
   html+='<p><strong>Anmerkung:</strong><br>'+escapeHtml(r.note||"-").replaceAll("\\n","<br>")+'</p>';
 

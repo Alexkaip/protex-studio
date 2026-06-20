@@ -967,6 +967,7 @@ async function sendOrder(){
 
 const {error}=await supabaseClient.from("requests").insert({
   customer_email: clientEmail,
+  phone: clientPhone,
   note: notes,
   mail_text: mailText,
   order_data: {
