@@ -204,7 +204,14 @@ const startProductArea = document.getElementById("start-product-area");
 const startProductGrid = document.getElementById("start-product-grid");
 const startProductTitle = document.getElementById("start-product-title");
 
-document.addEventListener("DOMContentLoaded", init);
+document.addEventListener("DOMContentLoaded", async () => {
+  await init();
+  try {
+    await recordVisit();
+  } catch (e) {
+    console.warn("Besucherzähler Fehler:", e);
+  }
+});
 
 async function init(){
   bindEvents();
