@@ -1,13 +1,13 @@
-PROTEX Studio v35 - Kostenbox und Logo Fix
+PROTEX Studio v36 - Mengenrabatt Fix
 
 Geändert:
-- Logo ist jetzt als zugeschnittene Datei assets/protex-logo.png enthalten und größer sichtbar.
-- Kostenbox zeigt Produktpreis, Druckkosten, Warenwert, Zwischensumme und Endpreis sobald eine Menge gewählt ist.
-- Text/Grafik erhöht weiterhin die Druckkosten automatisch.
-- Mengenrabatt-Zeile erscheint nur, wenn wirklich ein Mengenrabatt aktiv ist.
-- Gutschein-Rabatt erscheint nur bei gültigem Gutscheincode.
+- Kostenbox bleibt sichtbar sobald ein Produkt/Menge gewählt ist.
+- Produktpreis und Druckkosten werden weiterhin angezeigt.
+- Mengenrabatt wird nur angezeigt, wenn er aktiv ist.
+- Mengenrabatt wird wieder gerechnet, auch wenn in Supabase versehentlich eine leere Rabattliste gespeichert ist.
+- Logo im Header deutlich größer.
 
-Nach Upload:
+Nach dem Hochladen:
 1. Alle Dateien aus der ZIP in GitHub ersetzen.
-2. Vercel Redeploy abwarten.
-3. Browser mit STRG + F5 neu laden.
+2. Vercel Deployment abwarten bis Ready.
+3. Kundenansicht mit STRG + F5 neu laden.

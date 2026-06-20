@@ -59,10 +59,14 @@ function normalizePrintCost(value){
 
 function normalizeDiscountTiers(value){
   const rows=Array.isArray(value)?value:DEFAULT_QUANTITY_DISCOUNTS;
-  return rows.map(r=>({
+  const normalized=rows.map(r=>({
     min_qty:parseInt(r.min_qty ?? r.minQty ?? r.qty ?? 0,10)||0,
     discount_percent:Number(String(r.discount_percent ?? r.discount ?? r.percent ?? 0).replace(',','.'))||0
   })).filter(r=>r.min_qty>0 && r.discount_percent>0).sort((a,b)=>a.min_qty-b.min_qty);
+
+  // Wichtig: Wenn in Supabase versehentlich eine leere Rabattliste gespeichert ist,
+  // sollen die Standard-Mengenrabatte trotzdem wieder greifen.
+  return normalized.length ? normalized : [...DEFAULT_QUANTITY_DISCOUNTS];
 }
 
 async function loadDiscountSettings(){
