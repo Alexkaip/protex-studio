@@ -146,16 +146,21 @@ function calculatePricing(items){
 }
 
 function renderPricingHtml(pricing,title){
-  return '<div class="pricing-title">'+title+'</div>'+ 
-    '<div>Gesamtmenge: <strong>'+pricing.totalQty+' Stück</strong></div>'+ 
-    '<div>Produktpreis: <strong>€ '+formatPrice(pricing.productSubtotal||0)+'</strong></div>'+ 
-    '<div>Druckkosten: <strong>€ '+formatPrice(pricing.printCostAmount||0)+'</strong> ('+(pricing.totalPrintPositions||0)+' Druck(e) × € '+formatPrice(pricing.printCostPerPosition||0)+' × Stückzahl)</div>'+ 
-    '<div>Warenwert: <strong>€ '+formatPrice(pricing.subtotal)+'</strong></div>'+ 
-    (pricing.quantityDiscountRate>0 ? '<div>Mengenrabatt: <strong>'+pricing.quantityDiscountRate+'%</strong> (-€ '+formatPrice(pricing.quantityDiscountAmount)+')</div>' : '')+ 
-    '<div>Zwischensumme: <strong>€ '+formatPrice(pricing.afterQuantity)+'</strong></div>'+ 
-    '<div>Gutscheincode: <strong>'+(pricing.voucherCode||'-')+'</strong> '+(pricing.voucherDiscountRate?('(-'+pricing.voucherDiscountRate+'%)'):'')+'</div>'+ 
-    '<div class="pricing-final">Endpreis: € '+formatPrice(pricing.total)+'</div>'+
-    renderDiscountTiers();
+  const quantityDiscountLine = pricing.quantityDiscountRate>0
+    ? '<div>Mengenrabatt: <strong>'+pricing.quantityDiscountRate+'%</strong> (-€ '+formatPrice(pricing.quantityDiscountAmount)+')</div>'
+    : '';
+  const voucherDiscountLine = pricing.voucherDiscountRate>0
+    ? '<div>Gutscheincode-Rabatt: <strong>'+pricing.voucherCode+'</strong> (-'+pricing.voucherDiscountRate+'% / -€ '+formatPrice(pricing.voucherDiscountAmount)+')</div>'
+    : '';
+  return '<div class="pricing-title">'+title+'</div>'+
+    '<div>Gesamtmenge: <strong>'+pricing.totalQty+' Stück</strong></div>'+
+    '<div>Produktpreis: <strong>€ '+formatPrice(pricing.productSubtotal||0)+'</strong></div>'+
+    '<div>Druckkosten: <strong>€ '+formatPrice(pricing.printCostAmount||0)+'</strong> ('+(pricing.totalPrintPositions||0)+' Druck(e) × € '+formatPrice(pricing.printCostPerPosition||0)+' × Stückzahl)</div>'+
+    '<div>Warenwert: <strong>€ '+formatPrice(pricing.subtotal)+'</strong></div>'+
+    quantityDiscountLine+
+    voucherDiscountLine+
+    '<div>Zwischensumme: <strong>€ '+formatPrice(pricing.afterQuantity)+'</strong></div>'+
+    '<div class="pricing-final">Endpreis: € '+formatPrice(pricing.total)+'</div>';
 }
 
 function getCurrentPricingItems(){

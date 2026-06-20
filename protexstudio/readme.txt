@@ -1,16 +1,16 @@
-PROTEX Studio v32 - Logo und Rabattfeld Fix
+PROTEX Studio v33 - Logo und Rabattanzeige korrigiert
 
 Geändert:
-- Logo rechts oben wird jetzt als Datei PT-LOGO_PT.png geladen
-- Logo liegt zusätzlich im Ordner assets/protex-logo.png
-- Preis-/Rabattbox "Aktuelles Produkt" bleibt ausgeblendet, solange keine Stückzahl eingetragen ist
-- Mengenrabatt wird nur angezeigt, wenn wirklich ein Mengenrabatt angewendet wird
-- Rabattstaffel-Liste wird beim Kunden nicht mehr angezeigt
-- Telefonnummer-Feld ergänzt
-- Button heißt "Anfrage senden"
+- Protex Logo im Header deutlich größer
+- Logo liegt zusätzlich in assets/protex-logo.png und als PT-LOGO_PT.png im Hauptordner
+- Die Preisbox erscheint erst, wenn bei einem Produkt eine Menge eingegeben wurde
+- Mengenrabatt-Zeile erscheint nur, wenn wirklich ein Mengenrabatt aktiv ist
+- Gutscheincode-Rabatt erscheint nur, wenn ein gültiger Gutscheincode angewendet wurde
+- Die allgemeine Mengenrabatt-Staffel wird beim Kunden nicht mehr in der Preisbox angezeigt
+- Telefonnummer-Feld bleibt enthalten
 
-Nach Upload:
-1. Alle Dateien im GitHub-Ordner protexstudio ersetzen.
-2. Wichtig: PT-LOGO_PT.png mit hochladen.
+Nach dem Hochladen:
+1. ZIP entpacken.
+2. Alle Dateien in GitHub im protexstudio Ordner ersetzen.
 3. Vercel Deployment abwarten bis Ready.
 4. Kundenansicht mit STRG + F5 neu laden.
