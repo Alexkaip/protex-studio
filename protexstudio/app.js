@@ -163,6 +163,18 @@ function renderPricingHtml(pricing,title){
     '<div class="pricing-final">Endpreis: € '+formatPrice(pricing.total)+'</div>';
 }
 
+function renderActiveDiscountHtml(pricing){
+  let html = '<div class="pricing-title">Aktiver Rabatt</div>';
+  if(pricing.quantityDiscountRate>0){
+    html += '<div>Mengenrabatt: <strong>'+pricing.quantityDiscountRate+'%</strong> (-€ '+formatPrice(pricing.quantityDiscountAmount)+')</div>';
+  }
+  if(pricing.voucherDiscountRate>0){
+    html += '<div>Gutscheincode-Rabatt: <strong>'+pricing.voucherCode+'</strong> (-'+pricing.voucherDiscountRate+'% / -€ '+formatPrice(pricing.voucherDiscountAmount)+')</div>';
+  }
+  html += '<div class="pricing-final">Endpreis mit Rabatt: € '+formatPrice(pricing.total)+'</div>';
+  return html;
+}
+
 function getCurrentPricingItems(){
   const prod=filteredProducts[currentProductIndex];
   if(!prod) return [];
@@ -371,7 +383,7 @@ function resetConfiguratorPreview(){
   cDesc.textContent="Bitte zuerst Kategorie und Produkt auswählen.";
   cPrice.textContent="";
   document.getElementById("size-grid").innerHTML="";
-  document.getElementById("total-box").textContent="Gesamt: 0 Stück · € 0.00";
+  const totalBox=document.getElementById("total-box"); if(totalBox){totalBox.classList.add("hidden"); totalBox.innerHTML="";}
 }
 
 function applyCategoryFilter(){
@@ -440,12 +452,13 @@ function updateTotal(){
   const prod=filteredProducts[currentProductIndex];
   const pricing=calculatePricing(getCurrentPricingItems());
   if(box){
-    if(!prod || (pricing.totalQty||0)<=0){
+    const hasActiveDiscount = pricing.quantityDiscountRate>0 || pricing.voucherDiscountRate>0;
+    if(!prod || (pricing.totalQty||0)<=0 || !hasActiveDiscount){
       box.classList.add("hidden");
       box.innerHTML="";
     }else{
       box.classList.remove("hidden");
-      box.innerHTML=renderPricingHtml(pricing,"Aktuelles Produkt");
+      box.innerHTML=renderActiveDiscountHtml(pricing);
     }
   }
   const status=document.getElementById("voucher-status");

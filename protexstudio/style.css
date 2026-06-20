@@ -167,5 +167,5 @@ input[type=file]{width:100%;border:1px dashed #e2e8f0;background:#f8fafc;border-
 .stat-card span{color:var(--muted);font-weight:800}
 @media(max-width:900px){.admin-top-actions{min-width:0;grid-template-columns:1fr}.coupon-settings-row{grid-template-columns:1fr 1fr}.coupon-settings-row .coupon-active-label,.coupon-settings-row .delete-btn{grid-column:1/-1}.visitor-stats-grid{grid-template-columns:1fr}}
 
-.header-logo{max-height:115px;max-width:460px;width:auto;height:auto;object-fit:contain;display:block}
-@media(max-width:700px){.header-logo{max-height:78px;max-width:260px}.header{align-items:center}}
+.header-logo{height:95px;max-height:none;max-width:520px;width:auto;object-fit:contain;display:block}
+@media(max-width:700px){.header-logo{height:62px;max-width:280px}.header{align-items:center}}
