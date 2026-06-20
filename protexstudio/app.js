@@ -204,26 +204,23 @@ const startProductArea = document.getElementById("start-product-area");
 const startProductGrid = document.getElementById("start-product-grid");
 const startProductTitle = document.getElementById("start-product-title");
 
-document.addEventListener("DOMContentLoaded", async () => {
-  await init();
-  try {
-    await recordVisit();
-  } catch (e) {
-    console.warn("Besucherzähler Fehler:", e);
-  }
-});
+document.addEventListener("DOMContentLoaded", init);
 
 async function init(){
   bindEvents();
+
   try{
     supabaseClient = getSupabaseClient();
+
+    await recordVisit();
+
     await loadDiscountSettings();
-    recordVisit();
     await loadProducts();
     await loadCategories();
   }catch(err){
     showWarning(err.message);
   }
+
   setupCanvasEvents();
 }
 
@@ -994,20 +991,6 @@ const {error}=await supabaseClient.from("requests").insert({
     alert("Speichern fehlgeschlagen: "+error.message+"\\n\\nBitte prüfe, ob die Supabase Tabelle requests angelegt wurde.");
   }finally{
     sendBtn.disabled=false;sendBtn.textContent="Anfrage senden";
-	async function trackVisit(){
-  try{
-    if(!supabaseClient) return;
-
-    await supabaseClient.from("visits").insert({
-      path: window.location.pathname || "/",
-      user_agent: navigator.userAgent || ""
-    });
-  }catch(err){
-    console.warn("Besucherzähler konnte nicht gespeichert werden:", err.message);
-  }
-}
-
-setTimeout(trackVisit, 1200);
   }
 }
 
