@@ -1,4 +1,4 @@
-PROTEX Studio v28 - Druckkosten pro Druckposition
+PROTEX Studio v30 - Logo, Telefonfeld und Rabatt-Anzeige
 
 Neu:
 - eigener Admin-Button "Druckkosten"
@@ -20,3 +20,12 @@ Wichtig nach dem Hochladen:
 2. Vercel Deployment abwarten bis Ready.
 3. In Supabase die Datei supabase-setup-v18.sql erneut im SQL Editor ausführen.
 4. Admin und Kundenansicht mit STRG + F5 neu laden.
+
+
+Update v30:
+- Protex Logo rechts oben in der Kundenansicht
+- Text "Anfrage wird im Admin gespeichert" entfernt
+- Button heißt wieder "Anfrage senden"
+- Telefonnummer-Feld ergänzt
+- Telefonnummer wird in Anfrage, Admin und E-Mail gespeichert
+- Mengenrabatt wird nur angezeigt, wenn wirklich Rabatt gewährt wird

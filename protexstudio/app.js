@@ -86,10 +86,11 @@ async function loadDiscountSettings(){
 
 async function recordVisit(){
   try{
-   const payload={
-  path:window.location.pathname||'/',
-  user_agent:(navigator.userAgent||'').slice(0,300)
-};
+    const payload={
+      page:'customer',
+      path:window.location.pathname||'/',
+      user_agent:(navigator.userAgent||'').slice(0,300)
+    };
     await supabaseClient.from('visits').insert(payload);
   }catch(err){
     console.warn('Besucherzähler konnte nicht geschrieben werden:',err.message);
@@ -102,9 +103,9 @@ function getQuantityDiscountRate(qty){
   return rate;
 }
 
-function renderDiscountTiers(){
-  if(!quantityDiscountTiers.length)return '';
-  return '<div class="discount-tier-list"><strong>Mengenrabatte:</strong> '+quantityDiscountTiers.map(t=>'ab '+t.min_qty+' Stk -'+t.discount_percent+'%').join(' · ')+'</div>';
+function renderDiscountTiers(pricing){
+  if(!quantityDiscountTiers.length || !pricing || pricing.quantityDiscountRate<=0)return '';
+  return '<div class="discount-tier-list"><strong>Mengenrabatt gewährt:</strong> -'+pricing.quantityDiscountRate+'%</div>';
 }
 
 function getVoucherInfo(){
@@ -151,11 +152,11 @@ function renderPricingHtml(pricing,title){
     '<div>Produktpreis: <strong>€ '+formatPrice(pricing.productSubtotal||0)+'</strong></div>'+ 
     '<div>Druckkosten: <strong>€ '+formatPrice(pricing.printCostAmount||0)+'</strong> ('+(pricing.totalPrintPositions||0)+' Druck(e) × € '+formatPrice(pricing.printCostPerPosition||0)+' × Stückzahl)</div>'+ 
     '<div>Warenwert: <strong>€ '+formatPrice(pricing.subtotal)+'</strong></div>'+ 
-    '<div>Mengenrabatt: <strong>'+pricing.quantityDiscountRate+'%</strong> (-€ '+formatPrice(pricing.quantityDiscountAmount)+')</div>'+ 
+    (pricing.quantityDiscountRate>0 ? '<div>Mengenrabatt: <strong>'+pricing.quantityDiscountRate+'%</strong> (-€ '+formatPrice(pricing.quantityDiscountAmount)+')</div>' : '')+ 
     '<div>Zwischensumme: <strong>€ '+formatPrice(pricing.afterQuantity)+'</strong></div>'+ 
     '<div>Gutscheincode: <strong>'+(pricing.voucherCode||'-')+'</strong> '+(pricing.voucherDiscountRate?('(-'+pricing.voucherDiscountRate+'%)'):'')+'</div>'+ 
     '<div class="pricing-final">Endpreis: € '+formatPrice(pricing.total)+'</div>'+
-    renderDiscountTiers();
+    renderDiscountTiers(pricing);
 }
 
 function getCurrentPricingItems(){
@@ -746,6 +747,7 @@ function renderRequestList(){
 
 function buildMailText(){
   const clientEmail=document.getElementById("client-email").value.trim();
+  const clientPhone=document.getElementById("client-phone")?.value.trim()||"";
   const notes=document.getElementById("client-notes").value.trim();
   let productText="";
   requestItems.forEach((item,index)=>{
@@ -775,7 +777,7 @@ function buildMailText(){
     "- Endpreis: € "+formatPrice(pricing.total)+"\n\n";
   return "Hallo!\n\nich habe folgende Produkte im Konfigurator zusammengestellt.\n\nPRODUKTE / ANFRAGE:\n"+productText+
     rabattText+
-    "KUNDEN-INFOS:\n- Meine E-Mail: "+clientEmail+"\n- Anmerkung: "+(notes||"-")+"\n\n"+
+    "KUNDEN-INFOS:\n- Meine E-Mail: "+clientEmail+"\n- Telefon: "+(clientPhone||"-")+"\n- Anmerkung: "+(notes||"-")+"\n\n"+
     "Die Layoutbilder für Vorder- und Rückseite wurden über das Online-Formular mitgesendet.\n\nBitte um Rückmeldung.\n";
 }
 
@@ -866,6 +868,7 @@ function blobToBase64(blob){
 
 async function sendOrder(){
   const clientEmail=document.getElementById("client-email").value.trim(),status=document.getElementById("send-status");
+  const clientPhone=document.getElementById("client-phone")?.value.trim()||"";
   const notes=document.getElementById("client-notes").value.trim();
   if(!clientEmail){alert("Bitte E-Mail angeben.");return;}
   if(!requestItems.length){alert("Bitte zuerst mindestens ein Produkt hinzufügen.");return;}
@@ -930,6 +933,7 @@ const {error}=await supabaseClient.from("requests").insert({
   note: notes,
   mail_text: mailText,
   order_data: {
+    customer_phone: clientPhone,
     items: cleanItems,
     total_items: cleanItems.length,
     uploaded_files: uploadedFiles,
@@ -945,12 +949,13 @@ const {error}=await supabaseClient.from("requests").insert({
     requestItems=[];
     renderRequestList();
     document.getElementById("client-notes").value="";
+    const phoneInput=document.getElementById("client-phone"); if(phoneInput) phoneInput.value="";
   }catch(error){
     console.error(error);
     status.textContent="Fehler: "+error.message;
     alert("Speichern fehlgeschlagen: "+error.message+"\\n\\nBitte prüfe, ob die Supabase Tabelle requests angelegt wurde.");
   }finally{
-    sendBtn.disabled=false;sendBtn.textContent="Anfrage speichern";
+    sendBtn.disabled=false;sendBtn.textContent="Anfrage senden";
 }
 }
 

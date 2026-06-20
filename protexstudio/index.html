@@ -3,7 +3,7 @@
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Protex Studio - Kunden-Konfigurator</title><link href="https://fonts.googleapis.com/css2?family=Anton&family=Bangers&family=Bebas+Neue&family=Lobster&family=Montserrat:wght@400;700;900&family=Permanent+Marker&family=Orbitron:wght@400;700;900&family=Oswald:wght@400;700&family=Pacifico&family=Poppins:wght@400;700;900&family=Rajdhani:wght@400;700&family=Roboto:wght@400;700;900&family=Teko:wght@400;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css"></head>
 <body>
 
-<header class="header container"><div><div class="brand">Protex Studio</div><div class="sub">Produkt-Konfigurator</div></div><div class="sub">📋 Anfrage wird im Admin gespeichert</div></header>
+<header class="header container"><div><div class="brand">Protex Studio</div><div class="sub">Produkt-Konfigurator</div></div><img class="header-logo" src="assets/protex-logo.png" alt="Protex Austria"></header>
 <main class="container">
 <section id="category-start" class="category-start card">
   <div class="start-head">
@@ -105,7 +105,7 @@
 
 <h2>5. Anfrage</h2><button class="btn btn-light" id="add-request-btn" type="button">Aktuelles Produkt zur Anfrage hinzufügen</button><div id="request-list" class="request-list"><div class="sub">Noch keine Produkte in der Anfrage.</div></div><button class="btn btn-secondary" id="download-design-btn" type="button">Layouts herunterladen</button>
 
-<h2>6. Senden</h2><div class="form-group"><label>Deine E-Mail-Adresse</label><input type="email" id="client-email" placeholder="name@beispiel.at"></div><div class="form-group"><label>Anmerkungen</label><textarea id="client-notes" rows="3"></textarea></div><button class="btn" id="send-order-btn" type="button">Anfrage speichern</button><div id="send-status" class="sub"></div>
+<h2>6. Anfrage senden</h2><div class="form-group"><label>Deine E-Mail-Adresse</label><input type="email" id="client-email" placeholder="name@beispiel.at"></div><div class="form-group"><label>Telefonnummer</label><input type="text" id="client-phone" placeholder="+43 664 1234567"></div><div class="form-group"><label>Anmerkungen</label><textarea id="client-notes" rows="3"></textarea></div><button class="btn" id="send-order-btn" type="button">Anfrage senden</button><div id="send-status" class="sub"></div>
 </aside></section></main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="config.js"></script><script src="supabase-helper.js"></script><script src="app.js"></script>
 </body></html>
