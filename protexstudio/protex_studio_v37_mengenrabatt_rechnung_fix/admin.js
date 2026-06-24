@@ -29,6 +29,7 @@ function bindEvents(){
   document.getElementById("reload-btn").addEventListener("click",loadAll);
   document.getElementById("search").addEventListener("input",renderProducts);
   document.getElementById("csv-export-btn").addEventListener("click",exportCsv);
+  document.getElementById("shopify-export-btn").addEventListener("click",exportShopifyCsv);
   document.getElementById("csv-import").addEventListener("change",importCsv);
   document.getElementById("add-category-btn").addEventListener("click",addCategory);
   const reloadRequests=document.getElementById("reload-requests-btn");
@@ -551,6 +552,57 @@ function exportCsv(){
   ]));
   const csv="\ufeff"+rows.map(row=>row.map(csvEscape).join(",")).join("\r\n");
   downloadText(csv,"produkte-export.csv","text/csv;charset=utf-8");
+}
+
+function exportShopifyCsv(){
+  const rows=[[
+    "Handle","Title","Body (HTML)","Vendor","Product Category","Type","Tags","Published",
+    "Option1 Name","Option1 Value","Variant SKU","Variant Grams","Variant Inventory Tracker",
+    "Variant Inventory Qty","Variant Inventory Policy","Variant Fulfillment Service",
+    "Variant Price","Variant Requires Shipping","Variant Taxable","Image Src","Image Position","Status"
+  ]];
+  products.filter(p=>p.active!==false).forEach(p=>{
+    const sizes=(p.sizes&&p.sizes.length?p.sizes:["Standard"]);
+    const handle=slugify(p.title);
+    const price=formatShopifyPrice(p.price);
+    sizes.forEach((size,idx)=>{
+      rows.push([
+        handle,
+        idx===0?(p.title||""):"",
+        idx===0?shopifyBody(p.desc):"",
+        idx===0?"Protex Austria":"",
+        "",
+        idx===0?(p.category||""):"",
+        idx===0?(p.category||""):"",
+        idx===0?"TRUE":"",
+        "Größe",
+        size,
+        handle+"-"+slugify(size),
+        "0",
+        "",
+        "0",
+        "deny",
+        "manual",
+        price,
+        "TRUE",
+        "TRUE",
+        idx===0?(p.imgFront||""):"",
+        idx===0?"1":"",
+        "active"
+      ]);
+    });
+  });
+  const csv="\ufeff"+rows.map(row=>row.map(csvEscape).join(",")).join("\r\n");
+  downloadText(csv,"produkte-shopify-export.csv","text/csv;charset=utf-8");
+}
+
+function shopifyBody(value){
+  return String(value||"").trim().replace(/\r?\n/g,"<br>");
+}
+
+function formatShopifyPrice(value){
+  const n=Number(String(value||"0").replace(",","."));
+  return Number.isFinite(n)?n.toFixed(2):"0.00";
 }
 
 function csvEscape(value){
