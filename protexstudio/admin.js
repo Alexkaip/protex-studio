@@ -598,16 +598,26 @@ async function importCsv(e){
   if(parsed.length<2){alert("Keine Produkte gefunden.");e.target.value="";return}
   const headers=parsed[0].map(normalizeHeader);
   const rows=[];
+  const existingRes=await supabaseClient.from("products").select("name,category");
+  if(existingRes.error){alert(existingRes.error.message);e.target.value="";return}
+  const keyFor=(name,category)=>String(name||"").trim().toLowerCase()+"|"+String(category||"").trim().toLowerCase();
+  const existingKeys=new Set((existingRes.data||[]).map(r=>keyFor(r.name,r.category)));
+  const importKeys=new Set();
+  let skipped=0;
   for(let i=1;i<parsed.length;i++){
     const c=parsed[i];
     const title=pick(c,headers,["Produktname","Name"],0);
     if(!title)continue;
     const descRaw=pick(c,headers,["Beschreibung"],2);
     if(title.trim().toLowerCase()==="t-shirt premium" && descRaw.trim().toLowerCase()==="100% baumwolle")continue;
+    const category=pick(c,headers,["Kategorie"],1);
+    const productKey=keyFor(title,category);
+    if(existingKeys.has(productKey)||importKeys.has(productKey)){skipped++;continue}
+    importKeys.add(productKey);
     const activeRaw=pick(c,headers,["Aktiv"],5);
     const product={
       title:title,
-      category:pick(c,headers,["Kategorie"],1),
+      category:category,
       desc:descRaw,
       price:pick(c,headers,["Preis"],3),
       sizes:splitList(pick(c,headers,["Größen","Groessen"],4).replaceAll("|",",")),
@@ -619,11 +629,11 @@ async function importCsv(e){
     };
     rows.push(rowFromProduct(product));
   }
-  if(!rows.length){alert("Keine Produkte gefunden.");e.target.value="";return}
+  if(!rows.length){alert(skipped?skipped+" vorhandene Produkte übersprungen. Keine neuen Produkte importiert.":"Keine Produkte gefunden.");e.target.value="";return}
   const importCats=[...new Set(rows.map(r=>r.category).filter(Boolean))];
   for(const name of importCats){await supabaseClient.from("categories").upsert({name},{onConflict:"name"});}
   const{error}=await supabaseClient.from("products").insert(rows);
-  if(error)alert(error.message);else alert(rows.length+" Produkte importiert.");
+  if(error)alert(error.message);else alert(rows.length+" Produkte importiert."+((skipped>0)?" "+skipped+" vorhandene übersprungen.":""));
   e.target.value="";
   await loadAll();
 }
