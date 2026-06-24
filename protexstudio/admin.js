@@ -28,7 +28,6 @@ function bindEvents(){
   document.getElementById("reset-form-btn").addEventListener("click",resetForm);
   document.getElementById("reload-btn").addEventListener("click",loadAll);
   document.getElementById("search").addEventListener("input",renderProducts);
-  document.getElementById("csv-template-btn").addEventListener("click",downloadTemplate);
   document.getElementById("csv-export-btn").addEventListener("click",exportCsv);
   document.getElementById("csv-import").addEventListener("change",importCsv);
   document.getElementById("add-category-btn").addEventListener("click",addCategory);
