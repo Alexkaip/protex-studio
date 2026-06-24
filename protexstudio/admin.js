@@ -529,50 +529,101 @@ async function deleteProduct(id){
 }
 
 function downloadTemplate(){
-  const csv="Produktname,Beschreibung,Preis,Kategorie,Größen\\nT-Shirt Premium,100% Baumwolle,19.90,T-Shirt,S|M|L|XL|XXL\\n";
+  const rows=[
+    ["Produktname","Kategorie","Beschreibung","Preis","Größen","Aktiv","BildVorderseite","BildRückseite","BildLinkerÄrmel","BildRechterÄrmel"],
+    ["T-Shirt Premium","T-Shirts","100% Baumwolle","19.90","S|M|L|XL|XXL","true","https://dein-bild-vorne.jpg","https://dein-bild-hinten.jpg","https://dein-bild-linker-aermel.jpg","https://dein-bild-rechter-aermel.jpg"]
+  ];
+  const csv="\ufeff"+rows.map(row=>row.map(csvEscape).join(",")).join("\r\n");
   downloadText(csv,"produkt-vorlage.csv","text/csv;charset=utf-8");
 }
 
 function exportCsv(){
-  const rows=[["Produktname","Beschreibung","Preis","Kategorie","Größen","Aktiv"]];
-  products.forEach(p=>rows.push([p.title,p.desc,p.price,p.category,(p.sizes||[]).join("|"),p.active]));
-  const csv=rows.map(row=>row.map(csvEscape).join(",")).join("\\n");
+  const rows=[["Produktname","Kategorie","Beschreibung","Preis","Größen","Aktiv","BildVorderseite","BildRückseite","BildLinkerÄrmel","BildRechterÄrmel"]];
+  products.forEach(p=>rows.push([
+    p.title||"",
+    p.category||"",
+    p.desc||"",
+    p.price||"",
+    (p.sizes||[]).join("|"),
+    p.active!==false ? "true" : "false",
+    p.imgFront||"",
+    p.imgBack||"",
+    p.imgLeftSleeve||"",
+    p.imgRightSleeve||""
+  ]));
+  const csv="\ufeff"+rows.map(row=>row.map(csvEscape).join(",")).join("\r\n");
   downloadText(csv,"produkte-export.csv","text/csv;charset=utf-8");
 }
 
 function csvEscape(value){
   const s=String(value??"");
-  return/[",\\n;]/.test(s)?'"'+s.replaceAll('"','""')+'"':s;
+  return /[",\r\n;]/.test(s)?'"'+s.replaceAll('"','""')+'"':s;
 }
 
-function parseCsvLine(line){
-  const out=[];let cur="",quoted=false;
-  for(let i=0;i<line.length;i++){
-    const ch=line[i];
-    if(ch==='"'&&line[i+1]==='"'){cur+='"';i++}
-    else if(ch==='"')quoted=!quoted;
-    else if((ch===","||ch===";")&&!quoted){out.push(cur);cur=""}
-    else cur+=ch;
+function parseCsv(text){
+  text=String(text||"").replace(/^\ufeff/,"");
+  const rows=[];let row=[],cur="",quoted=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(ch==='"'&&text[i+1]==='"'){cur+='"';i++;continue}
+    if(ch==='"'){quoted=!quoted;continue}
+    if((ch===","||ch===";")&&!quoted){row.push(cur.trim());cur="";continue}
+    if((ch==="\n"||ch==="\r")&&!quoted){
+      if(ch==="\r"&&text[i+1]==="\n")i++;
+      row.push(cur.trim());
+      if(row.some(v=>v!==""))rows.push(row);
+      row=[];cur="";continue;
+    }
+    cur+=ch;
   }
-  out.push(cur);
-  return out.map(v=>v.trim());
+  row.push(cur.trim());
+  if(row.some(v=>v!==""))rows.push(row);
+  return rows;
+}
+
+function normalizeHeader(value){
+  return String(value||"").toLowerCase().replace(/\s+/g,"").replace(/ä/g,"ae").replace(/ö/g,"oe").replace(/ü/g,"ue").replace(/ß/g,"ss");
+}
+
+function pick(row,headers,names,fallbackIndex){
+  for(const name of names){
+    const idx=headers.indexOf(normalizeHeader(name));
+    if(idx>=0)return row[idx]||"";
+  }
+  return fallbackIndex>=0 ? (row[fallbackIndex]||"") : "";
 }
 
 async function importCsv(e){
   const file=e.target.files[0];if(!file)return;
   const text=await file.text();
-  const lines=text.split(/\\r?\\n/).filter(l=>l.trim());
+  const parsed=parseCsv(text);
+  if(parsed.length<2){alert("Keine Produkte gefunden.");e.target.value="";return}
+  const headers=parsed[0].map(normalizeHeader);
   const rows=[];
-  for(let i=1;i<lines.length;i++){
-    const c=parseCsvLine(lines[i]);
-    if(!c[0])continue;
-    rows.push({name:c[0],description:c[1]||"",price:c[2]||"",category:c[3]||"",sizes:(c[4]||"").replaceAll("|",","),active:true});
+  for(let i=1;i<parsed.length;i++){
+    const c=parsed[i];
+    const title=pick(c,headers,["Produktname","Name"],0);
+    if(!title)continue;
+    const activeRaw=pick(c,headers,["Aktiv"],5);
+    const product={
+      title:title,
+      category:pick(c,headers,["Kategorie"],1),
+      desc:pick(c,headers,["Beschreibung"],2),
+      price:pick(c,headers,["Preis"],3),
+      sizes:splitList(pick(c,headers,["Größen","Groessen"],4).replaceAll("|",",")),
+      active:!activeRaw || !["false","0","nein","no","inaktiv"].includes(String(activeRaw).toLowerCase()),
+      imgFront:pick(c,headers,["BildVorderseite","Bild vorne","Vorderseite","BildVorne"],6),
+      imgBack:pick(c,headers,["BildRückseite","BildRueckseite","Bild hinten","Rückseite","Rueckseite","BildHinten"],7),
+      imgLeftSleeve:pick(c,headers,["BildLinkerÄrmel","BildLinkerAermel","Linker Ärmel","Linker Aermel"],8),
+      imgRightSleeve:pick(c,headers,["BildRechterÄrmel","BildRechterAermel","Rechter Ärmel","Rechter Aermel"],9)
+    };
+    rows.push(rowFromProduct(product));
   }
-  if(!rows.length){alert("Keine Produkte gefunden.");return}
+  if(!rows.length){alert("Keine Produkte gefunden.");e.target.value="";return}
   const importCats=[...new Set(rows.map(r=>r.category).filter(Boolean))];
   for(const name of importCats){await supabaseClient.from("categories").upsert({name},{onConflict:"name"});}
   const{error}=await supabaseClient.from("products").insert(rows);
-  if(error)alert(error.message);else alert(rows.length+" Produkte importiert. Bilder bitte ergänzen.");
+  if(error)alert(error.message);else alert(rows.length+" Produkte importiert.");
   e.target.value="";
   await loadAll();
 }
