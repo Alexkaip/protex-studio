@@ -91,7 +91,7 @@ async function loadDiscountSettings(){
 async function recordVisit(){
   try{
     const payload={
-      page:'customer',
+     
       path:window.location.pathname||'/',
       user_agent:(navigator.userAgent||'').slice(0,300)
     };
@@ -337,6 +337,10 @@ function createCategoryCard(title,count,img,clickHandler){
   return card;
 }
 
+function categoryText(p){
+  return (p.category||"Ohne Kategorie")+(p.subcategory?" / "+p.subcategory:"");
+}
+
 function showCategoryStart(){
   selectedCategory="";
   categoryStart.classList.remove("hidden");
@@ -370,7 +374,7 @@ function showProductsForCategory(cat){
     card.type="button";
     card.innerHTML='<div class="start-product-img"><img src="'+(p.imgFront||"")+'" alt=""></div><div class="start-product-name"></div><div class="sub"></div><div class="dropdown-price"></div>';
     card.querySelector(".start-product-name").textContent=p.title;
-    card.querySelector(".sub").textContent=(p.category||"Ohne Kategorie")+(p.desc?" · "+p.desc:"");
+    card.querySelector(".sub").textContent=categoryText(p)+(p.desc?" · "+p.desc:"");
     card.querySelector(".dropdown-price").textContent="€ "+formatPrice(p.price);
     card.addEventListener("click",()=>openConfigurator(idx));
     startProductGrid.appendChild(card);
@@ -423,7 +427,7 @@ function selectProduct(index){
   pImg.src=p.imgFront;
   pImg.onload=()=>renderDesignItems();
   cTitle.innerHTML="<strong>"+p.title+"</strong>";
-  cDesc.textContent=(p.category?p.category+" · ":"")+(p.desc||"");
+  cDesc.textContent=(categoryText(p)?categoryText(p)+" · ":"")+(p.desc||"");
   cPrice.textContent="€ "+formatPrice(p.price);
   dropdownTrigger.innerHTML='<span style="display:flex;align-items:center;gap:8px;min-width:0;"><img src="'+p.imgFront+'" style="width:26px;height:26px;object-fit:contain;border-radius:4px;background:#f8fafc;"> <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span></span>';
   dropdownTrigger.querySelector("span span").textContent=p.title;
@@ -714,6 +718,7 @@ function addCurrentProductToRequest(){
     price:prod.price,
     desc:prod.desc||"",
     category:prod.category||"",
+    subcategory:prod.subcategory||"",
     quantities,
     productImages:{front:prod.imgFront,back:prod.imgBack,leftSleeve:prod.imgLeftSleeve,rightSleeve:prod.imgRightSleeve},
     designs:clonedDesigns,
@@ -793,7 +798,7 @@ function buildMailText(){
     const totalQty=item.quantities.reduce((s,q)=>s+q.qty,0);
     const totalPrice=totalQty*(Number(String(item.price).replace(",","."))||0);
     productText+=(index+1)+". "+item.title+"\\n"+
-      "- Kategorie: "+(item.category||"-")+"\\n"+
+      "- Kategorie: "+categoryText(item)+"\\n"+
       "- Basispreis: € "+item.price+"\\n"+
       "- Menge: "+qtyText+"\\n"+
       "- Gesamt: € "+formatPrice(totalPrice)+"\\n"+
@@ -905,8 +910,10 @@ function blobToBase64(blob){
 }
 
 async function sendOrder(){
-  const clientEmail=document.getElementById("client-email").value.trim(),status=document.getElementById("send-status");
-  const notes=document.getElementById("client-notes").value.trim();
+  const clientEmail = document.getElementById("client-email").value.trim();
+  const clientPhone = document.getElementById("client-phone")?.value.trim() || "";
+  const notes = document.getElementById("client-notes").value.trim();
+  const status = document.getElementById("send-status");
   if(!clientEmail){alert("Bitte E-Mail angeben.");return;}
   if(!requestItems.length){alert("Bitte zuerst mindestens ein Produkt hinzufügen.");return;}
   const mailText=buildMailText(),sendBtn=document.getElementById("send-order-btn");
@@ -956,6 +963,7 @@ async function sendOrder(){
   price: item.price,
   desc: item.desc || "",
   category: item.category || "",
+  subcategory: item.subcategory || "",
   quantities: item.quantities || [],
   designTexts: item.designTexts || [],
   designSummary: designSummary(item.designs),
@@ -967,6 +975,7 @@ async function sendOrder(){
 
 const {error}=await supabaseClient.from("requests").insert({
   customer_email: clientEmail,
+  phone: clientPhone,
   note: notes,
   mail_text: mailText,
   order_data: {
@@ -993,4 +1002,3 @@ const {error}=await supabaseClient.from("requests").insert({
     sendBtn.disabled=false;sendBtn.textContent="Anfrage senden";
   }
 }
-

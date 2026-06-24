@@ -431,14 +431,14 @@ async function removeCategory(cat){
 function renderProducts(){
   const list=document.getElementById("product-list"),q=document.getElementById("search").value.toLowerCase();
   list.innerHTML="";
-  const filtered=products.filter(p=>!q||[p.title,p.desc,p.category].join(" ").toLowerCase().includes(q));
+  const filtered=products.filter(p=>!q||[p.title,p.desc,p.category,p.subcategory].join(" ").toLowerCase().includes(q));
   if(!filtered.length){list.innerHTML='<div class="notice">Keine Produkte gefunden.</div>';return}
   filtered.forEach(p=>{
     const row=document.createElement("div");
     row.className="product-admin-item";
     row.innerHTML='<img src="'+(p.imgFront||"")+'" alt=""><div><strong></strong><div class="sub"></div><div class="product-actions"></div></div>';
     row.querySelector("strong").textContent=p.title;
-    row.querySelector(".sub").textContent="€ "+formatPrice(p.price)+" · "+(p.category||"Ohne Kategorie")+" · "+(p.active?"aktiv":"inaktiv");
+    row.querySelector(".sub").textContent="€ "+formatPrice(p.price)+" · "+categoryText(p)+" · "+(p.active?"aktiv":"inaktiv");
     const actions=row.querySelector(".product-actions");
     actions.appendChild(actionBtn("Bearbeiten","edit-btn",()=>editProduct(p)));
     actions.appendChild(actionBtn("Duplizieren","copy-btn",()=>duplicateProduct(p)));
@@ -453,11 +453,16 @@ function actionBtn(text,cls,fn){
   return b;
 }
 
+function categoryText(p){
+  return (p.category||"Ohne Kategorie")+(p.subcategory?" / "+p.subcategory:"");
+}
+
 function editProduct(p){
   document.getElementById("form-title").textContent="Produkt bearbeiten";
   document.getElementById("edit-id").value=p.id;
   document.getElementById("p-title").value=p.title;
   document.getElementById("p-category").value=p.category;
+  document.getElementById("p-subcategory").value=p.subcategory||"";
   document.getElementById("p-desc").value=p.desc;
   document.getElementById("p-price").value=p.price;
   document.getElementById("p-sizes").value=(p.sizes||[]).join(",");
@@ -468,7 +473,7 @@ function editProduct(p){
 function resetForm(){
   document.getElementById("form-title").textContent="Produkt anlegen";
   document.getElementById("edit-id").value="";
-  ["p-title","p-desc","p-price"].forEach(id=>document.getElementById(id).value="");
+  ["p-title","p-subcategory","p-desc","p-price"].forEach(id=>document.getElementById(id).value="");
   document.getElementById("p-category").value="";
   document.getElementById("p-sizes").value="S,M,L,XL,XXL";
   document.getElementById("p-front").value="";
@@ -500,7 +505,7 @@ async function saveProduct(){
     if(leftFile)imgLeftSleeve=await uploadFile(leftFile,"left-sleeve");
     if(rightFile)imgRightSleeve=await uploadFile(rightFile,"right-sleeve");
     if(!imgFront)throw new Error("Bitte ein Vorderseitenbild hochladen.");
-    const product={title:document.getElementById("p-title").value.trim(),category:document.getElementById("p-category").value.trim(),desc:document.getElementById("p-desc").value.trim(),price:document.getElementById("p-price").value.trim(),sizes:splitList(document.getElementById("p-sizes").value),imgFront,imgBack,imgLeftSleeve,imgRightSleeve,active:document.getElementById("p-active").checked};
+    const product={title:document.getElementById("p-title").value.trim(),category:document.getElementById("p-category").value.trim(),subcategory:document.getElementById("p-subcategory").value.trim(),desc:document.getElementById("p-desc").value.trim(),price:document.getElementById("p-price").value.trim(),sizes:splitList(document.getElementById("p-sizes").value),imgFront,imgBack,imgLeftSleeve,imgRightSleeve,active:document.getElementById("p-active").checked};
     if(!product.title)throw new Error("Produktname fehlt.");
     if(product.category && !categories.includes(product.category)){
       await supabaseClient.from("categories").upsert({name:product.category},{onConflict:"name"});
@@ -537,10 +542,11 @@ function downloadTemplate(){
 }
 
 function exportCsv(){
-  const rows=[["Produktname","Kategorie","Beschreibung","Preis","Größen","Aktiv","BildVorderseite","BildRückseite","BildLinkerÄrmel","BildRechterÄrmel"]];
+  const rows=[["Produktname","Kategorie","Unterkategorie","Beschreibung","Preis","Größen","Aktiv","BildVorderseite","BildRückseite","BildLinkerÄrmel","BildRechterÄrmel"]];
   products.forEach(p=>rows.push([
     p.title||"",
     p.category||"",
+    p.subcategory||"",
     p.desc||"",
     p.price||"",
     (p.sizes||[]).join("|"),
@@ -573,8 +579,8 @@ function exportShopifyCsv(){
         idx===0?shopifyBody(p.desc):"",
         idx===0?"Protex Austria":"",
         "",
-        idx===0?(p.category||""):"",
-        idx===0?(p.category||""):"",
+        idx===0?(p.subcategory||p.category||""):"",
+        idx===0?[p.category,p.subcategory].filter(Boolean).join(", "):"",
         idx===0?"TRUE":"",
         "Größe",
         size,
@@ -665,35 +671,39 @@ async function importCsv(e){
   const parsed=parseCsv(text);
   if(parsed.length<2){alert("Keine Produkte gefunden.");e.target.value="";return}
   const headers=parsed[0].map(normalizeHeader);
+  const hasSubcategory=headers.includes(normalizeHeader("Unterkategorie"));
+  const offset=hasSubcategory?1:0;
   const rows=[];
-  const existingRes=await supabaseClient.from("products").select("name,category");
+  const existingRes=await supabaseClient.from("products").select("name,category,subcategory");
   if(existingRes.error){alert(existingRes.error.message);e.target.value="";return}
-  const keyFor=(name,category)=>String(name||"").trim().toLowerCase()+"|"+String(category||"").trim().toLowerCase();
-  const existingKeys=new Set((existingRes.data||[]).map(r=>keyFor(r.name,r.category)));
+  const keyFor=(name,category,subcategory)=>String(name||"").trim().toLowerCase()+"|"+String(category||"").trim().toLowerCase()+"|"+String(subcategory||"").trim().toLowerCase();
+  const existingKeys=new Set((existingRes.data||[]).map(r=>keyFor(r.name,r.category,r.subcategory)));
   const importKeys=new Set();
   let skipped=0;
   for(let i=1;i<parsed.length;i++){
     const c=parsed[i];
     const title=pick(c,headers,["Produktname","Name"],0);
     if(!title)continue;
-    const descRaw=pick(c,headers,["Beschreibung"],2);
+    const subcategory=pick(c,headers,["Unterkategorie","Subkategorie","Subcategory"],hasSubcategory?2:-1);
+    const descRaw=pick(c,headers,["Beschreibung"],2+offset);
     if(title.trim().toLowerCase()==="t-shirt premium" && descRaw.trim().toLowerCase()==="100% baumwolle")continue;
     const category=pick(c,headers,["Kategorie"],1);
-    const productKey=keyFor(title,category);
+    const productKey=keyFor(title,category,subcategory);
     if(existingKeys.has(productKey)||importKeys.has(productKey)){skipped++;continue}
     importKeys.add(productKey);
-    const activeRaw=pick(c,headers,["Aktiv"],5);
+    const activeRaw=pick(c,headers,["Aktiv"],5+offset);
     const product={
       title:title,
       category:category,
+      subcategory:subcategory,
       desc:descRaw,
-      price:pick(c,headers,["Preis"],3),
-      sizes:splitList(pick(c,headers,["Größen","Groessen"],4).replaceAll("|",",")),
+      price:pick(c,headers,["Preis"],3+offset),
+      sizes:splitList(pick(c,headers,["Größen","Groessen"],4+offset).replaceAll("|",",")),
       active:!activeRaw || !["false","0","nein","no","inaktiv"].includes(String(activeRaw).toLowerCase()),
-      imgFront:pick(c,headers,["BildVorderseite","Bild vorne","Vorderseite","BildVorne"],6),
-      imgBack:pick(c,headers,["BildRückseite","BildRueckseite","Bild hinten","Rückseite","Rueckseite","BildHinten"],7),
-      imgLeftSleeve:pick(c,headers,["BildLinkerÄrmel","BildLinkerAermel","Linker Ärmel","Linker Aermel"],8),
-      imgRightSleeve:pick(c,headers,["BildRechterÄrmel","BildRechterAermel","Rechter Ärmel","Rechter Aermel"],9)
+      imgFront:pick(c,headers,["BildVorderseite","Bild vorne","Vorderseite","BildVorne"],6+offset),
+      imgBack:pick(c,headers,["BildRückseite","BildRueckseite","Bild hinten","Rückseite","Rueckseite","BildHinten"],7+offset),
+      imgLeftSleeve:pick(c,headers,["BildLinkerÄrmel","BildLinkerAermel","Linker Ärmel","Linker Aermel"],8+offset),
+      imgRightSleeve:pick(c,headers,["BildRechterÄrmel","BildRechterAermel","Rechter Ärmel","Rechter Aermel"],9+offset)
     };
     rows.push(rowFromProduct(product));
   }
@@ -754,6 +764,9 @@ function showRequestDetail(r){
   let html='<h3>Anfrage</h3>';
   html+='<div class="sub">'+formatDate(r.created_at)+' · '+(r.status||"Neu")+'</div>';
   html+='<p><strong>Kunde:</strong> '+escapeHtml(r.customer_email||"-")+'</p>';
+  html += '<p><strong>Telefon:</strong> ' +
+        escapeHtml(r.phone || "-") +
+        '</p>';
   html+='<button class="btn btn-danger" id="detail-delete-request-btn" type="button">Anfrage löschen</button>';
   html+='<p><strong>Anmerkung:</strong><br>'+escapeHtml(r.note||"-").replaceAll("\\n","<br>")+'</p>';
 
