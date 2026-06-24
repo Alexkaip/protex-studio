@@ -565,6 +565,7 @@ function exportShopifyCsv(){
     const sizes=(p.sizes&&p.sizes.length?p.sizes:["Standard"]);
     const handle=slugify(p.title);
     const price=formatShopifyPrice(p.price);
+    const images=shopifyImagesForProduct(p);
     sizes.forEach((size,idx)=>{
       rows.push([
         handle,
@@ -586,14 +587,29 @@ function exportShopifyCsv(){
         price,
         "TRUE",
         "TRUE",
-        idx===0?(p.imgFront||""):"",
+        idx===0?(images[0]||""):"",
         idx===0?"1":"",
         "active"
+      ]);
+    });
+    images.slice(1).forEach((image,idx)=>{
+      rows.push([
+        handle,"","","","","","","","","","","","","","","","","","",
+        image,
+        String(idx+2),
+        ""
       ]);
     });
   });
   const csv="\ufeff"+rows.map(row=>row.map(csvEscape).join(",")).join("\r\n");
   downloadText(csv,"produkte-shopify-export.csv","text/csv;charset=utf-8");
+}
+
+function shopifyImagesForProduct(p){
+  const images=[p.imgFront,p.imgBack,p.imgLeftSleeve,p.imgRightSleeve]
+    .map(v=>String(v||"").trim())
+    .filter(Boolean);
+  return [...new Set(images)];
 }
 
 function shopifyBody(value){
