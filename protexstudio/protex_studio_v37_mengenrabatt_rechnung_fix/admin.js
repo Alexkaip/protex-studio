@@ -530,7 +530,6 @@ async function deleteProduct(id){
 function downloadTemplate(){
   const rows=[
     ["Produktname","Kategorie","Beschreibung","Preis","Größen","Aktiv","BildVorderseite","BildRückseite","BildLinkerÄrmel","BildRechterÄrmel"],
-    ["T-Shirt Premium","T-Shirts","100% Baumwolle","19.90","S|M|L|XL|XXL","true","https://dein-bild-vorne.jpg","https://dein-bild-hinten.jpg","https://dein-bild-linker-aermel.jpg","https://dein-bild-rechter-aermel.jpg"]
   ];
   const csv="\ufeff"+rows.map(row=>row.map(csvEscape).join(",")).join("\r\n");
   downloadText(csv,"produkt-vorlage.csv","text/csv;charset=utf-8");
@@ -603,11 +602,13 @@ async function importCsv(e){
     const c=parsed[i];
     const title=pick(c,headers,["Produktname","Name"],0);
     if(!title)continue;
+    const descRaw=pick(c,headers,["Beschreibung"],2);
+    if(title.trim().toLowerCase()==="t-shirt premium" && descRaw.trim().toLowerCase()==="100% baumwolle")continue;
     const activeRaw=pick(c,headers,["Aktiv"],5);
     const product={
       title:title,
       category:pick(c,headers,["Kategorie"],1),
-      desc:pick(c,headers,["Beschreibung"],2),
+      desc:descRaw,
       price:pick(c,headers,["Preis"],3),
       sizes:splitList(pick(c,headers,["Größen","Groessen"],4).replaceAll("|",",")),
       active:!activeRaw || !["false","0","nein","no","inaktiv"].includes(String(activeRaw).toLowerCase()),
