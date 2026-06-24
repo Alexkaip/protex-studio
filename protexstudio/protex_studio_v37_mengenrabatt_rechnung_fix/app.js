@@ -4,6 +4,7 @@ let categories = [];
 let filteredProducts = [];
 let currentProductIndex = 0;
 let selectedCategory = "";
+let selectedSubcategory = "";
 let currentSide = "front";
 let requestItems = [];
 let selectedItemId = null;
@@ -236,7 +237,7 @@ function bindEvents(){
   window.addEventListener("click",()=>dropdown.classList.remove("open"));
   document.getElementById("category-filter").addEventListener("change",applyCategoryFilter);
   document.getElementById("start-back-btn").addEventListener("click",showCategoryStart);
-  document.getElementById("back-to-products-btn").addEventListener("click",()=>showProductsForCategory(selectedCategory));
+  document.getElementById("back-to-products-btn").addEventListener("click",()=>showProductsForCategory(selectedCategory,selectedSubcategory));
   document.getElementById("logo-loader").addEventListener("change",handleLogoUpload);
   document.getElementById("add-text-btn").addEventListener("click",addTextItem);
   document.getElementById("delete-selected-btn").addEventListener("click",deleteSelectedItem);
@@ -307,6 +308,7 @@ function buildCategoryFilter(){
 
 function renderStartCategories(){
   const cats=getCategories();
+  selectedSubcategory="";
   startProductArea.classList.add("hidden");
   startCategoryGrid.classList.remove("hidden");
   startCategoryGrid.innerHTML="";
@@ -322,8 +324,41 @@ function renderStartCategories(){
   cats.forEach(cat=>{
     const catProducts=products.filter(p=>p.category===cat);
     const img=catProducts.find(p=>p.imgFront)?.imgFront||"";
-    startCategoryGrid.appendChild(createCategoryCard(cat,catProducts.length,img,()=>showProductsForCategory(cat)));
+    startCategoryGrid.appendChild(createCategoryCard(cat,catProducts.length,img,()=>showSubcategoriesForCategory(cat)));
   });
+}
+
+function getSubcategoriesForCategory(cat){
+  return [...new Set(products
+    .filter(p=>p.category===cat && p.subcategory)
+    .map(p=>p.subcategory)
+    .filter(Boolean))]
+    .sort();
+}
+
+function showSubcategoriesForCategory(cat){
+  selectedCategory=cat||"";
+  selectedSubcategory="";
+  const catProducts=products.filter(p=>p.category===selectedCategory);
+  const subs=getSubcategoriesForCategory(selectedCategory);
+  if(!subs.length){
+    showProductsForCategory(selectedCategory);
+    return;
+  }
+
+  startProductArea.classList.add("hidden");
+  startCategoryGrid.classList.remove("hidden");
+  startCategoryGrid.innerHTML="";
+
+  const allImg=catProducts.find(p=>p.imgFront)?.imgFront||"";
+  startCategoryGrid.appendChild(createCategoryCard("Alle "+selectedCategory,catProducts.length,allImg,()=>showProductsForCategory(selectedCategory,"")));
+
+  subs.forEach(sub=>{
+    const subProducts=catProducts.filter(p=>p.subcategory===sub);
+    const img=subProducts.find(p=>p.imgFront)?.imgFront||"";
+    startCategoryGrid.appendChild(createCategoryCard(sub,subProducts.length,img,()=>showProductsForCategory(selectedCategory,sub)));
+  });
+  window.scrollTo({top:0,behavior:"smooth"});
 }
 
 function createCategoryCard(title,count,img,clickHandler){
@@ -343,15 +378,17 @@ function categoryText(p){
 
 function showCategoryStart(){
   selectedCategory="";
+  selectedSubcategory="";
   categoryStart.classList.remove("hidden");
   configuratorScreen.classList.add("hidden");
   renderStartCategories();
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
-function showProductsForCategory(cat){
+function showProductsForCategory(cat,subcat=""){
   selectedCategory=cat||"";
-  filteredProducts=products.filter(p=>!selectedCategory||p.category===selectedCategory);
+  selectedSubcategory=subcat||"";
+  filteredProducts=products.filter(p=>(!selectedCategory||p.category===selectedCategory)&&(!selectedSubcategory||p.subcategory===selectedSubcategory));
   document.getElementById("category-filter").value=selectedCategory;
   buildDropdown();
   resetConfiguratorPreview();
@@ -360,7 +397,7 @@ function showProductsForCategory(cat){
   configuratorScreen.classList.add("hidden");
   startCategoryGrid.classList.add("hidden");
   startProductArea.classList.remove("hidden");
-  startProductTitle.textContent=selectedCategory?selectedCategory:"Alle Produkte";
+  startProductTitle.textContent=selectedCategory?(selectedCategory+(selectedSubcategory?" / "+selectedSubcategory:"")):"Alle Produkte";
   startProductGrid.innerHTML="";
 
   if(!filteredProducts.length){

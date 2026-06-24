@@ -29,7 +29,8 @@ function bindEvents(){
   document.getElementById("reload-btn").addEventListener("click",loadAll);
   document.getElementById("search").addEventListener("input",renderProducts);
   document.getElementById("csv-export-btn").addEventListener("click",exportCsv);
-  document.getElementById("shopify-export-btn").addEventListener("click",exportShopifyCsv);
+  const shopifyExportBtn=document.getElementById("shopify-export-btn");
+  if(shopifyExportBtn)shopifyExportBtn.addEventListener("click",exportShopifyCsv);
   document.getElementById("csv-import").addEventListener("change",importCsv);
   document.getElementById("add-category-btn").addEventListener("click",addCategory);
   const reloadRequests=document.getElementById("reload-requests-btn");
@@ -462,7 +463,8 @@ function editProduct(p){
   document.getElementById("edit-id").value=p.id;
   document.getElementById("p-title").value=p.title;
   document.getElementById("p-category").value=p.category;
-  document.getElementById("p-subcategory").value=p.subcategory||"";
+  const subcategoryInput=document.getElementById("p-subcategory");
+  if(subcategoryInput)subcategoryInput.value=p.subcategory||"";
   document.getElementById("p-desc").value=p.desc;
   document.getElementById("p-price").value=p.price;
   document.getElementById("p-sizes").value=(p.sizes||[]).join(",");
@@ -473,7 +475,7 @@ function editProduct(p){
 function resetForm(){
   document.getElementById("form-title").textContent="Produkt anlegen";
   document.getElementById("edit-id").value="";
-  ["p-title","p-subcategory","p-desc","p-price"].forEach(id=>document.getElementById(id).value="");
+  ["p-title","p-subcategory","p-desc","p-price"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
   document.getElementById("p-category").value="";
   document.getElementById("p-sizes").value="S,M,L,XL,XXL";
   document.getElementById("p-front").value="";
@@ -505,7 +507,7 @@ async function saveProduct(){
     if(leftFile)imgLeftSleeve=await uploadFile(leftFile,"left-sleeve");
     if(rightFile)imgRightSleeve=await uploadFile(rightFile,"right-sleeve");
     if(!imgFront)throw new Error("Bitte ein Vorderseitenbild hochladen.");
-    const product={title:document.getElementById("p-title").value.trim(),category:document.getElementById("p-category").value.trim(),subcategory:document.getElementById("p-subcategory").value.trim(),desc:document.getElementById("p-desc").value.trim(),price:document.getElementById("p-price").value.trim(),sizes:splitList(document.getElementById("p-sizes").value),imgFront,imgBack,imgLeftSleeve,imgRightSleeve,active:document.getElementById("p-active").checked};
+    const product={title:document.getElementById("p-title").value.trim(),category:document.getElementById("p-category").value.trim(),subcategory:(document.getElementById("p-subcategory")?.value||"").trim(),desc:document.getElementById("p-desc").value.trim(),price:document.getElementById("p-price").value.trim(),sizes:splitList(document.getElementById("p-sizes").value),imgFront,imgBack,imgLeftSleeve,imgRightSleeve,active:document.getElementById("p-active").checked};
     if(!product.title)throw new Error("Produktname fehlt.");
     if(product.category && !categories.includes(product.category)){
       await supabaseClient.from("categories").upsert({name:product.category},{onConflict:"name"});
