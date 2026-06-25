@@ -1,4 +1,4 @@
-let supabaseClient,session=null,products=[],categories=[],requests=[],quantityDiscountTiers=[],couponCodes=[],visitorStats={total:0,today:0,last7:0},printCostPerPosition=5;
+let supabaseClient,session=null,products=[],categories=[],subcategories=[],requests=[],quantityDiscountTiers=[],couponCodes=[],visitorStats={total:0,today:0,last7:0},printCostPerPosition=5;
 const SIDES=["front","back","leftSleeve","rightSleeve"];
 const SIDE_LABELS={front:"Vorderseite",back:"Rückseite",leftSleeve:"Linker Ärmel",rightSleeve:"Rechter Ärmel"};
 function sideLabel(side){return SIDE_LABELS[side]||side;}
@@ -29,6 +29,10 @@ function bindEvents(){
   document.getElementById("reload-btn").addEventListener("click",loadAll);
   document.getElementById("search").addEventListener("input",renderProducts);
   document.getElementById("p-category").addEventListener("change",renderSubcategoryOptions);
+  const subcategoryParent=document.getElementById("subcategory-parent");
+  if(subcategoryParent)subcategoryParent.addEventListener("change",renderSubcategoryList);
+  const addSubcategoryBtn=document.getElementById("add-subcategory-btn");
+  if(addSubcategoryBtn)addSubcategoryBtn.addEventListener("click",addSubcategory);
   document.getElementById("csv-export-btn").addEventListener("click",exportCsv);
   const shopifyExportBtn=document.getElementById("shopify-export-btn");
   if(shopifyExportBtn)shopifyExportBtn.addEventListener("click",exportShopifyCsv);
@@ -145,12 +149,15 @@ async function updateLoginState(){
 async function loadAll(){
   await loadProducts();
   await loadCategories();
+  await loadSubcategories();
   await loadDiscountSettings();
   await loadCouponSettings();
   await loadPrintCostSettings();
   await loadVisitorStats(false);
   renderCategorySelect();
   renderCategoryList();
+  renderSubcategoryParentSelect();
+  renderSubcategoryList();
   renderDiscountSettings();
   renderCouponSettings();
   renderSubcategoryOptions();
@@ -178,6 +185,30 @@ async function loadCategories(){
   }
 }
 
+async function loadSubcategories(){
+  const productSubs=products.filter(p=>p.category&&p.subcategory).map(p=>({category:p.category,name:p.subcategory}));
+  try{
+    const{data,error}=await supabaseClient.from("subcategories").select("*").order("category",{ascending:true}).order("name",{ascending:true});
+    if(error)throw error;
+    const stored=(data||[]).map(r=>({category:r.category||"",name:r.name||""})).filter(r=>r.category&&r.name);
+    subcategories=uniqueSubcategories([...stored,...productSubs]);
+  }catch(err){
+    subcategories=uniqueSubcategories(productSubs);
+    showWarning("Hinweis: Tabelle subcategories fehlt oder ist nicht freigegeben. Bitte SQL für Unterkategorien ausführen. "+err.message);
+  }
+}
+
+function uniqueSubcategories(rows){
+  const map=new Map();
+  rows.forEach(r=>{
+    const category=String(r.category||"").trim();
+    const name=String(r.name||"").trim();
+    if(!category||!name)return;
+    map.set(category.toLowerCase()+"|"+name.toLowerCase(),{category,name});
+  });
+  return [...map.values()].sort((a,b)=>a.category.localeCompare(b.category)||a.name.localeCompare(b.name));
+}
+
 function renderCategorySelect(){
   const sel=document.getElementById("p-category");
   const current=sel.value;
@@ -187,22 +218,50 @@ function renderCategorySelect(){
 }
 
 function getSubcategories(category){
-  return [...new Set(products
-    .filter(p=>(!category||p.category===category)&&p.subcategory)
-    .map(p=>p.subcategory)
-    .filter(Boolean))]
-    .sort();
+  const fromTable=subcategories.filter(s=>(!category||s.category===category)).map(s=>s.name);
+  const fromProducts=products.filter(p=>(!category||p.category===category)&&p.subcategory).map(p=>p.subcategory);
+  return [...new Set([...fromTable,...fromProducts].filter(Boolean))].sort();
 }
 
 function renderSubcategoryOptions(){
-  const list=document.getElementById("subcategory-options");
-  if(!list)return;
+  const sel=document.getElementById("p-subcategory");
+  if(!sel)return;
   const category=document.getElementById("p-category")?.value||"";
-  list.innerHTML="";
+  const current=sel.value;
+  sel.innerHTML='<option value="">Unterkategorie wählen...</option>';
   getSubcategories(category).forEach(sub=>{
     const opt=document.createElement("option");
     opt.value=sub;
-    list.appendChild(opt);
+    opt.textContent=sub;
+    sel.appendChild(opt);
+  });
+  sel.value=getSubcategories(category).includes(current)?current:"";
+}
+
+function renderSubcategoryParentSelect(){
+  const sel=document.getElementById("subcategory-parent");
+  if(!sel)return;
+  const current=sel.value;
+  sel.innerHTML='<option value="">Kategorie wählen...</option>';
+  categories.forEach(c=>{const opt=document.createElement("option");opt.value=c;opt.textContent=c;sel.appendChild(opt)});
+  sel.value=categories.includes(current)?current:"";
+}
+
+function renderSubcategoryList(){
+  const list=document.getElementById("subcategory-list");
+  if(!list)return;
+  const category=document.getElementById("subcategory-parent")?.value||"";
+  list.innerHTML="";
+  if(!category){list.innerHTML='<div class="sub">Bitte Hauptkategorie wählen.</div>';return}
+  const rows=subcategories.filter(s=>s.category===category);
+  if(!rows.length){list.innerHTML='<div class="sub">Noch keine Unterkategorien.</div>';return}
+  rows.forEach(s=>{
+    const chip=document.createElement("span");
+    chip.className="category-chip";
+    chip.innerHTML="<span></span><button type='button'>×</button>";
+    chip.querySelector("span").textContent=s.name;
+    chip.querySelector("button").addEventListener("click",()=>removeSubcategory(s.category,s.name));
+    list.appendChild(chip);
   });
 }
 
@@ -432,7 +491,11 @@ async function addCategory(){
   categories.sort();
   input.value="";
   renderCategorySelect();
+  renderSubcategoryParentSelect();
   document.getElementById("p-category").value=val;
+  const subcategoryParent=document.getElementById("subcategory-parent");
+  if(subcategoryParent)subcategoryParent.value=val;
+  renderSubcategoryList();
   renderCategoryList();
 }
 
@@ -448,7 +511,44 @@ async function removeCategory(cat){
   }catch(err){alert("Kategorie konnte nicht aus der Datenbank gelöscht werden: "+err.message)}
   categories=categories.filter(c=>c!==cat);
   renderCategorySelect();
+  renderSubcategoryParentSelect();
+  renderSubcategoryList();
   renderCategoryList();
+}
+
+async function addSubcategory(){
+  const category=document.getElementById("subcategory-parent").value;
+  const input=document.getElementById("new-subcategory");
+  const name=input.value.trim();
+  if(!category){alert("Bitte zuerst eine Hauptkategorie wählen.");return}
+  if(!name)return;
+  try{
+    const{error}=await supabaseClient.from("subcategories").upsert({category,name},{onConflict:"category,name"});
+    if(error)throw error;
+  }catch(err){
+    showWarning("Unterkategorie nur lokal hinzugefügt. Bitte SQL für Unterkategorien ausführen. "+err.message);
+  }
+  subcategories=uniqueSubcategories([...subcategories,{category,name}]);
+  input.value="";
+  renderSubcategoryList();
+  renderSubcategoryOptions();
+}
+
+async function removeSubcategory(category,name){
+  if(products.some(p=>p.category===category&&p.subcategory===name)){
+    alert("Diese Unterkategorie wird noch von Produkten verwendet. Bitte Produkte vorher ändern.");
+    return;
+  }
+  if(!confirm("Unterkategorie '"+name+"' wirklich löschen?"))return;
+  try{
+    const{error}=await supabaseClient.from("subcategories").delete().eq("category",category).eq("name",name);
+    if(error)throw error;
+  }catch(err){
+    alert("Unterkategorie konnte nicht aus der Datenbank gelöscht werden: "+err.message);
+  }
+  subcategories=subcategories.filter(s=>!(s.category===category&&s.name===name));
+  renderSubcategoryList();
+  renderSubcategoryOptions();
 }
 
 function renderProducts(){

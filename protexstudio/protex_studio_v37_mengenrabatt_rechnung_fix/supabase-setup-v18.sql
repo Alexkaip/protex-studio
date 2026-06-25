@@ -7,6 +7,14 @@ create table if not exists public.categories (
   name text not null unique
 );
 
+create table if not exists public.subcategories (
+  id bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  category text not null,
+  name text not null,
+  unique(category, name)
+);
+
 create table if not exists public.requests (
   id bigint generated always as identity primary key,
   created_at timestamptz not null default now(),
@@ -19,6 +27,7 @@ create table if not exists public.requests (
 );
 
 alter table public.categories enable row level security;
+alter table public.subcategories enable row level security;
 alter table public.requests enable row level security;
 
 drop policy if exists "Kategorien öffentlich lesen" on public.categories;
@@ -30,6 +39,19 @@ using (true);
 drop policy if exists "Kategorien Admin schreiben" on public.categories;
 create policy "Kategorien Admin schreiben"
 on public.categories for all
+to authenticated
+using (true)
+with check (true);
+
+drop policy if exists "Unterkategorien öffentlich lesen" on public.subcategories;
+create policy "Unterkategorien öffentlich lesen"
+on public.subcategories for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "Unterkategorien Admin schreiben" on public.subcategories;
+create policy "Unterkategorien Admin schreiben"
+on public.subcategories for all
 to authenticated
 using (true)
 with check (true);
