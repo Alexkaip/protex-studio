@@ -28,6 +28,7 @@ function bindEvents(){
   document.getElementById("reset-form-btn").addEventListener("click",resetForm);
   document.getElementById("reload-btn").addEventListener("click",loadAll);
   document.getElementById("search").addEventListener("input",renderProducts);
+  document.getElementById("p-category").addEventListener("change",renderSubcategoryOptions);
   document.getElementById("csv-export-btn").addEventListener("click",exportCsv);
   const shopifyExportBtn=document.getElementById("shopify-export-btn");
   if(shopifyExportBtn)shopifyExportBtn.addEventListener("click",exportShopifyCsv);
@@ -152,6 +153,7 @@ async function loadAll(){
   renderCategoryList();
   renderDiscountSettings();
   renderCouponSettings();
+  renderSubcategoryOptions();
   renderProducts();
   await loadRequests();
 }
@@ -182,6 +184,26 @@ function renderCategorySelect(){
   sel.innerHTML='<option value="">Kategorie wählen...</option>';
   categories.forEach(c=>{const opt=document.createElement("option");opt.value=c;opt.textContent=c;sel.appendChild(opt)});
   sel.value=categories.includes(current)?current:"";
+}
+
+function getSubcategories(category){
+  return [...new Set(products
+    .filter(p=>(!category||p.category===category)&&p.subcategory)
+    .map(p=>p.subcategory)
+    .filter(Boolean))]
+    .sort();
+}
+
+function renderSubcategoryOptions(){
+  const list=document.getElementById("subcategory-options");
+  if(!list)return;
+  const category=document.getElementById("p-category")?.value||"";
+  list.innerHTML="";
+  getSubcategories(category).forEach(sub=>{
+    const opt=document.createElement("option");
+    opt.value=sub;
+    list.appendChild(opt);
+  });
 }
 
 function renderCategoryList(){
@@ -463,6 +485,7 @@ function editProduct(p){
   document.getElementById("edit-id").value=p.id;
   document.getElementById("p-title").value=p.title;
   document.getElementById("p-category").value=p.category;
+  renderSubcategoryOptions();
   const subcategoryInput=document.getElementById("p-subcategory");
   if(subcategoryInput)subcategoryInput.value=p.subcategory||"";
   document.getElementById("p-desc").value=p.desc;
