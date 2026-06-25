@@ -535,20 +535,27 @@ async function addSubcategory(){
 }
 
 async function removeSubcategory(category,name){
-  if(products.some(p=>p.category===category&&p.subcategory===name)){
-    alert("Diese Unterkategorie wird noch von Produkten verwendet. Bitte Produkte vorher Ã¤ndern.");
-    return;
-  }
-  if(!confirm("Unterkategorie '"+name+"' wirklich lÃ¶schen?"))return;
+  const usedCount=products.filter(p=>p.category===category&&p.subcategory===name).length;
+  const msg=usedCount
+    ? "Unterkategorie '"+name+"' wirklich löschen? Sie wird auch bei "+usedCount+" Produkt(en) entfernt."
+    : "Unterkategorie '"+name+"' wirklich löschen?";
+  if(!confirm(msg))return;
   try{
+    if(usedCount){
+      const updateRes=await supabaseClient.from("products").update({subcategory:""}).eq("category",category).eq("subcategory",name);
+      if(updateRes.error)throw updateRes.error;
+    }
     const{error}=await supabaseClient.from("subcategories").delete().eq("category",category).eq("name",name);
     if(error)throw error;
   }catch(err){
-    alert("Unterkategorie konnte nicht aus der Datenbank gelÃ¶scht werden: "+err.message);
+    alert("Unterkategorie konnte nicht aus der Datenbank gelöscht werden: "+err.message);
+    return;
   }
+  products=products.map(p=>p.category===category&&p.subcategory===name?{...p,subcategory:""}:p);
   subcategories=subcategories.filter(s=>!(s.category===category&&s.name===name));
   renderSubcategoryList();
   renderSubcategoryOptions();
+  renderProducts();
 }
 
 function renderProducts(){
