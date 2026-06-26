@@ -756,6 +756,7 @@ function addCurrentProductToRequest(){
     desc:prod.desc||"",
     category:prod.category||"",
     subcategory:prod.subcategory||"",
+    shopifyVariantIds:prod.shopifyVariantIds||{},
     quantities,
     productImages:{front:prod.imgFront,back:prod.imgBack,leftSleeve:prod.imgLeftSleeve,rightSleeve:prod.imgRightSleeve},
     designs:clonedDesigns,
@@ -1001,6 +1002,7 @@ async function sendOrder(){
   desc: item.desc || "",
   category: item.category || "",
   subcategory: item.subcategory || "",
+shopifyVariantIds: item.shopifyVariantIds || {},
   quantities: item.quantities || [],
   designTexts: item.designTexts || [],
   designSummary: designSummary(item.designs),
@@ -1039,3 +1041,5 @@ const {error}=await supabaseClient.from("requests").insert({
     sendBtn.disabled=false;sendBtn.textContent="Anfrage senden";
   }
 }
+
+

@@ -88,6 +88,7 @@ using (true);
 alter table public.products add column if not exists image_left_sleeve text;
 alter table public.products add column if not exists image_right_sleeve text;
 alter table public.products add column if not exists subcategory text;
+alter table public.products add column if not exists shopify_variant_ids jsonb not null default '{}'::jsonb;
 
 
 -- V25: Einstellungen für Mengenrabatte
@@ -155,3 +156,5 @@ using (true);
 insert into public.settings (key,value)
 values ('print_cost_per_position','{"price_per_print":5}'::jsonb)
 on conflict (key) do nothing;
+
+

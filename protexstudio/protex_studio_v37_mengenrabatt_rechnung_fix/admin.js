@@ -587,6 +587,24 @@ function categoryText(p){
   return (p.category||"Ohne Kategorie")+(p.subcategory?" / "+p.subcategory:"");
 }
 
+function formatShopifyVariantIds(value){
+  const ids=value&&typeof value==="object"?value:{};
+  return Object.keys(ids).sort().map(size=>size+"="+ids[size]).join("\n");
+}
+
+function parseShopifyVariantIds(value){
+  const ids={};
+  String(value||"").split(/\r?\n/).forEach(line=>{
+    const trimmed=line.trim();
+    if(!trimmed)return;
+    const parts=trimmed.split("=");
+    if(parts.length<2)return;
+    const size=parts.shift().trim();
+    const id=parts.join("=").trim();
+    if(size&&id)ids[size]=id;
+  });
+  return ids;
+}
 function editProduct(p){
   document.getElementById("form-title").textContent="Produkt bearbeiten";
   document.getElementById("edit-id").value=p.id;
@@ -598,6 +616,8 @@ function editProduct(p){
   document.getElementById("p-desc").value=p.desc;
   document.getElementById("p-price").value=p.price;
   document.getElementById("p-sizes").value=(p.sizes||[]).join(",");
+  const shopifyVariants=document.getElementById("p-shopify-variants");
+  if(shopifyVariants)shopifyVariants.value=formatShopifyVariantIds(p.shopifyVariantIds);
   document.getElementById("p-active").checked=p.active;
   window.scrollTo({top:0,behavior:"smooth"});
 }
@@ -605,7 +625,7 @@ function editProduct(p){
 function resetForm(){
   document.getElementById("form-title").textContent="Produkt anlegen";
   document.getElementById("edit-id").value="";
-  ["p-title","p-subcategory","p-desc","p-price"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  ["p-title","p-subcategory","p-desc","p-price","p-shopify-variants"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
   document.getElementById("p-category").value="";
   document.getElementById("p-sizes").value="S,M,L,XL,XXL";
   document.getElementById("p-front").value="";
@@ -637,7 +657,7 @@ async function saveProduct(){
     if(leftFile)imgLeftSleeve=await uploadFile(leftFile,"left-sleeve");
     if(rightFile)imgRightSleeve=await uploadFile(rightFile,"right-sleeve");
     if(!imgFront)throw new Error("Bitte ein Vorderseitenbild hochladen.");
-    const product={title:document.getElementById("p-title").value.trim(),category:document.getElementById("p-category").value.trim(),subcategory:(document.getElementById("p-subcategory")?.value||"").trim(),desc:document.getElementById("p-desc").value.trim(),price:document.getElementById("p-price").value.trim(),sizes:splitList(document.getElementById("p-sizes").value),imgFront,imgBack,imgLeftSleeve,imgRightSleeve,active:document.getElementById("p-active").checked};
+    const product={title:document.getElementById("p-title").value.trim(),category:document.getElementById("p-category").value.trim(),subcategory:(document.getElementById("p-subcategory")?.value||"").trim(),desc:document.getElementById("p-desc").value.trim(),price:document.getElementById("p-price").value.trim(),sizes:splitList(document.getElementById("p-sizes").value),shopifyVariantIds:parseShopifyVariantIds(document.getElementById("p-shopify-variants")?.value||""),imgFront,imgBack,imgLeftSleeve,imgRightSleeve,active:document.getElementById("p-active").checked};
     if(!product.title)throw new Error("Produktname fehlt.");
     if(product.category && !categories.includes(product.category)){
       await supabaseClient.from("categories").upsert({name:product.category},{onConflict:"name"});
@@ -674,7 +694,7 @@ function downloadTemplate(){
 }
 
 function exportCsv(){
-  const rows=[["Produktname","Kategorie","Unterkategorie","Beschreibung","Preis","Größen","Aktiv","BildVorderseite","BildRückseite","BildLinkerÄrmel","BildRechterÄrmel"]];
+  const rows=[["Produktname","Kategorie","Unterkategorie","Beschreibung","Preis","Größen","ShopifyVariantIDs","Aktiv","BildVorderseite","BildRückseite","BildLinkerÄrmel","BildRechterÄrmel"]];
   products.forEach(p=>rows.push([
     p.title||"",
     p.category||"",
@@ -682,6 +702,7 @@ function exportCsv(){
     p.desc||"",
     p.price||"",
     (p.sizes||[]).join("|"),
+    formatShopifyVariantIds(p.shopifyVariantIds),
     p.active!==false ? "true" : "false",
     p.imgFront||"",
     p.imgBack||"",
@@ -804,7 +825,9 @@ async function importCsv(e){
   if(parsed.length<2){alert("Keine Produkte gefunden.");e.target.value="";return}
   const headers=parsed[0].map(normalizeHeader);
   const hasSubcategory=headers.includes(normalizeHeader("Unterkategorie"));
+  const hasShopifyVariantIds=headers.includes(normalizeHeader("ShopifyVariantIDs"));
   const offset=hasSubcategory?1:0;
+  const shopifyOffset=hasShopifyVariantIds?1:0;
   const rows=[];
   const existingRes=await supabaseClient.from("products").select("name,category,subcategory");
   if(existingRes.error){alert(existingRes.error.message);e.target.value="";return}
@@ -823,7 +846,8 @@ async function importCsv(e){
     const productKey=keyFor(title,category,subcategory);
     if(existingKeys.has(productKey)||importKeys.has(productKey)){skipped++;continue}
     importKeys.add(productKey);
-    const activeRaw=pick(c,headers,["Aktiv"],5+offset);
+    const shopifyVariantIds=parseShopifyVariantIds(pick(c,headers,["ShopifyVariantIDs","Shopify Variant IDs","Shopify Varianten IDs"],hasShopifyVariantIds?5+offset:-1));
+    const activeRaw=pick(c,headers,["Aktiv"],5+offset+shopifyOffset);
     const product={
       title:title,
       category:category,
@@ -831,11 +855,12 @@ async function importCsv(e){
       desc:descRaw,
       price:pick(c,headers,["Preis"],3+offset),
       sizes:splitList(pick(c,headers,["Größen","Groessen"],4+offset).replaceAll("|",",")),
+      shopifyVariantIds:shopifyVariantIds,
       active:!activeRaw || !["false","0","nein","no","inaktiv"].includes(String(activeRaw).toLowerCase()),
-      imgFront:pick(c,headers,["BildVorderseite","Bild vorne","Vorderseite","BildVorne"],6+offset),
-      imgBack:pick(c,headers,["BildRückseite","BildRueckseite","Bild hinten","Rückseite","Rueckseite","BildHinten"],7+offset),
-      imgLeftSleeve:pick(c,headers,["BildLinkerÄrmel","BildLinkerAermel","Linker Ärmel","Linker Aermel"],8+offset),
-      imgRightSleeve:pick(c,headers,["BildRechterÄrmel","BildRechterAermel","Rechter Ärmel","Rechter Aermel"],9+offset)
+      imgFront:pick(c,headers,["BildVorderseite","Bild vorne","Vorderseite","BildVorne"],6+offset+shopifyOffset),
+      imgBack:pick(c,headers,["BildRückseite","BildRueckseite","Bild hinten","Rückseite","Rueckseite","BildHinten"],7+offset+shopifyOffset),
+      imgLeftSleeve:pick(c,headers,["BildLinkerÄrmel","BildLinkerAermel","Linker Ärmel","Linker Aermel"],8+offset+shopifyOffset),
+      imgRightSleeve:pick(c,headers,["BildRechterÄrmel","BildRechterAermel","Rechter Ärmel","Rechter Aermel"],9+offset+shopifyOffset)
     };
     rows.push(rowFromProduct(product));
   }
@@ -1056,3 +1081,5 @@ function escapeHtml(value){
 }
 
 window.deleteRequest=deleteRequest;
+
+
