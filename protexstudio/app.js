@@ -277,7 +277,7 @@ async function loadProducts(){
   dropdownTrigger.textContent="Produkte werden geladen...";
   const {data,error}=await supabaseClient.from("products").select("*").eq("active",true).order("id",{ascending:true});
   if(error)throw error;
-  products=(data||[]).map(productFromRow);
+  products=(data||[]).map(productFromRow).filter(p=>p.personalizable!==false);
 }
 
 async function loadCategories(){
@@ -1103,6 +1103,7 @@ const {data:requestRow,error}=await supabaseClient.from("requests").insert({
     sendBtn.disabled=false;sendBtn.textContent="In den Warenkorb / Anfrage senden";
   }
 }
+
 
 
 

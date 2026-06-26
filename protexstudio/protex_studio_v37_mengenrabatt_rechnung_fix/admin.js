@@ -568,7 +568,7 @@ function renderProducts(){
     row.className="product-admin-item";
     row.innerHTML='<img src="'+(p.imgFront||"")+'" alt=""><div><strong></strong><div class="sub"></div><div class="product-actions"></div></div>';
     row.querySelector("strong").textContent=p.title;
-    row.querySelector(".sub").textContent="€ "+formatPrice(p.price)+" · "+categoryText(p)+" · "+(p.active?"aktiv":"inaktiv");
+    row.querySelector(".sub").textContent="€ "+formatPrice(p.price)+" · "+categoryText(p)+" · "+(p.active?"aktiv":"inaktiv")+" � "+(p.personalizable!==false?"Konfigurator":"nur Shop");
     const actions=row.querySelector(".product-actions");
     actions.appendChild(actionBtn("Bearbeiten","edit-btn",()=>editProduct(p)));
     actions.appendChild(actionBtn("Duplizieren","copy-btn",()=>duplicateProduct(p)));
@@ -619,6 +619,7 @@ function editProduct(p){
   const shopifyVariants=document.getElementById("p-shopify-variants");
   if(shopifyVariants)shopifyVariants.value=formatShopifyVariantIds(p.shopifyVariantIds);
   document.getElementById("p-active").checked=p.active;
+  document.getElementById("p-personalizable").checked=p.personalizable!==false;
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
@@ -633,6 +634,7 @@ function resetForm(){
   document.getElementById("p-left-sleeve").value="";
   document.getElementById("p-right-sleeve").value="";
   document.getElementById("p-active").checked=true;
+  document.getElementById("p-personalizable").checked=true;
 }
 
 async function uploadFile(file,prefix){
@@ -657,7 +659,7 @@ async function saveProduct(){
     if(leftFile)imgLeftSleeve=await uploadFile(leftFile,"left-sleeve");
     if(rightFile)imgRightSleeve=await uploadFile(rightFile,"right-sleeve");
     if(!imgFront)throw new Error("Bitte ein Vorderseitenbild hochladen.");
-    const product={title:document.getElementById("p-title").value.trim(),category:document.getElementById("p-category").value.trim(),subcategory:(document.getElementById("p-subcategory")?.value||"").trim(),desc:document.getElementById("p-desc").value.trim(),price:document.getElementById("p-price").value.trim(),sizes:splitList(document.getElementById("p-sizes").value),shopifyVariantIds:parseShopifyVariantIds(document.getElementById("p-shopify-variants")?.value||""),imgFront,imgBack,imgLeftSleeve,imgRightSleeve,active:document.getElementById("p-active").checked};
+    const product={title:document.getElementById("p-title").value.trim(),category:document.getElementById("p-category").value.trim(),subcategory:(document.getElementById("p-subcategory")?.value||"").trim(),desc:document.getElementById("p-desc").value.trim(),price:document.getElementById("p-price").value.trim(),sizes:splitList(document.getElementById("p-sizes").value),shopifyVariantIds:parseShopifyVariantIds(document.getElementById("p-shopify-variants")?.value||""),imgFront,imgBack,imgLeftSleeve,imgRightSleeve,active:document.getElementById("p-active").checked,personalizable:document.getElementById("p-personalizable").checked};
     if(!product.title)throw new Error("Produktname fehlt.");
     if(product.category && !categories.includes(product.category)){
       await supabaseClient.from("categories").upsert({name:product.category},{onConflict:"name"});
@@ -694,7 +696,7 @@ function downloadTemplate(){
 }
 
 function exportCsv(){
-  const rows=[["Produktname","Kategorie","Unterkategorie","Beschreibung","Preis","Größen","ShopifyVariantIDs","Aktiv","BildVorderseite","BildRückseite","BildLinkerÄrmel","BildRechterÄrmel"]];
+  const rows=[["Produktname","Kategorie","Unterkategorie","Beschreibung","Preis","Größen","ShopifyVariantIDs","Aktiv","Personalisierbar","BildVorderseite","BildRückseite","BildLinkerÄrmel","BildRechterÄrmel"]];
   products.forEach(p=>rows.push([
     p.title||"",
     p.category||"",
@@ -704,6 +706,7 @@ function exportCsv(){
     (p.sizes||[]).join("|"),
     formatShopifyVariantIds(p.shopifyVariantIds),
     p.active!==false ? "true" : "false",
+    p.personalizable!==false ? "true" : "false",
     p.imgFront||"",
     p.imgBack||"",
     p.imgLeftSleeve||"",
@@ -826,8 +829,10 @@ async function importCsv(e){
   const headers=parsed[0].map(normalizeHeader);
   const hasSubcategory=headers.includes(normalizeHeader("Unterkategorie"));
   const hasShopifyVariantIds=headers.includes(normalizeHeader("ShopifyVariantIDs"));
+  const hasPersonalizable=headers.includes(normalizeHeader("Personalisierbar"));
   const offset=hasSubcategory?1:0;
   const shopifyOffset=hasShopifyVariantIds?1:0;
+  const personalizableOffset=hasPersonalizable?1:0;
   const rows=[];
   const existingRes=await supabaseClient.from("products").select("name,category,subcategory");
   if(existingRes.error){alert(existingRes.error.message);e.target.value="";return}
@@ -848,6 +853,7 @@ async function importCsv(e){
     importKeys.add(productKey);
     const shopifyVariantIds=parseShopifyVariantIds(pick(c,headers,["ShopifyVariantIDs","Shopify Variant IDs","Shopify Varianten IDs"],hasShopifyVariantIds?5+offset:-1));
     const activeRaw=pick(c,headers,["Aktiv"],5+offset+shopifyOffset);
+    const personalizableRaw=pick(c,headers,["Personalisierbar","Konfigurator","Im Konfigurator","Nur Shop"],hasPersonalizable?6+offset+shopifyOffset:-1);
     const product={
       title:title,
       category:category,
@@ -857,10 +863,11 @@ async function importCsv(e){
       sizes:splitList(pick(c,headers,["Größen","Groessen"],4+offset).replaceAll("|",",")),
       shopifyVariantIds:shopifyVariantIds,
       active:!activeRaw || !["false","0","nein","no","inaktiv"].includes(String(activeRaw).toLowerCase()),
-      imgFront:pick(c,headers,["BildVorderseite","Bild vorne","Vorderseite","BildVorne"],6+offset+shopifyOffset),
-      imgBack:pick(c,headers,["BildRückseite","BildRueckseite","Bild hinten","Rückseite","Rueckseite","BildHinten"],7+offset+shopifyOffset),
-      imgLeftSleeve:pick(c,headers,["BildLinkerÄrmel","BildLinkerAermel","Linker Ärmel","Linker Aermel"],8+offset+shopifyOffset),
-      imgRightSleeve:pick(c,headers,["BildRechterÄrmel","BildRechterAermel","Rechter Ärmel","Rechter Aermel"],9+offset+shopifyOffset)
+      personalizable:!personalizableRaw || !["false","0","nein","no","nur shop","shop","shopify"].includes(String(personalizableRaw).toLowerCase()),
+      imgFront:pick(c,headers,["BildVorderseite","Bild vorne","Vorderseite","BildVorne"],6+offset+shopifyOffset+personalizableOffset),
+      imgBack:pick(c,headers,["BildRückseite","BildRueckseite","Bild hinten","Rückseite","Rueckseite","BildHinten"],7+offset+shopifyOffset+personalizableOffset),
+      imgLeftSleeve:pick(c,headers,["BildLinkerÄrmel","BildLinkerAermel","Linker Ärmel","Linker Aermel"],8+offset+shopifyOffset+personalizableOffset),
+      imgRightSleeve:pick(c,headers,["BildRechterÄrmel","BildRechterAermel","Rechter Ärmel","Rechter Aermel"],9+offset+shopifyOffset+personalizableOffset)
     };
     rows.push(rowFromProduct(product));
   }
@@ -1081,5 +1088,8 @@ function escapeHtml(value){
 }
 
 window.deleteRequest=deleteRequest;
+
+
+
 
 
