@@ -13,6 +13,9 @@
   ></iframe>
 </section>
 
+<script>
+  window.PROTEX_PRINT_FEE_VARIANT_ID = {{ section.settings.print_fee_variant_id | json }};
+</script>
 {{ 'protex-shopify-cart-bridge.js' | asset_url | script_tag }}
 
 <style>
@@ -38,6 +41,12 @@
       "id": "configurator_url",
       "label": "Konfigurator URL",
       "default": "https://protex-studio.vercel.app/"
+    },
+    {
+      "type": "text",
+      "id": "print_fee_variant_id",
+      "label": "Shopify Variant ID fuer Druckkosten",
+      "default": ""
     }
   ],
   "presets": [

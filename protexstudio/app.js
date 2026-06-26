@@ -979,11 +979,14 @@ function findShopifyVariantId(ids,size){
 function buildShopifyCartPayload(clientEmail,clientPhone,notes,requestId){
   const items=[];
   const missing=[];
+  let printFeeQuantity=0;
   requestItems.forEach(item=>{
     const handle=slugify(item.title||"");
     (item.quantities||[]).forEach(q=>{
       const qty=Number(q.qty)||0;
       if(qty<=0)return;
+      const printPositions=countPrintPositions(item);
+      printFeeQuantity += qty * printPositions;
       const size=q.size||"";
       const variantId=findShopifyVariantId(item.shopifyVariantIds,size);
       if(!variantId && !handle){
@@ -1010,7 +1013,7 @@ function buildShopifyCartPayload(clientEmail,clientPhone,notes,requestId){
       });
     });
   });
-  return {items,missing};
+  return {items,missing,printFeeQuantity,printCostPerPosition};
 }
 
 function sendToShopifyCart(payload){
@@ -1123,6 +1126,7 @@ const {data:requestRow,error}=await supabaseClient.from("requests").insert({
     sendBtn.disabled=false;sendBtn.textContent="In den Warenkorb / Anfrage senden";
   }
 }
+
 
 
 

@@ -37,6 +37,21 @@ async function resolveVariantId(item) {
   return variant ? variant.id : "";
 }
 
+function addPrintFeeItem(items, payload) {
+  const printFeeVariantId = String(window.PROTEX_PRINT_FEE_VARIANT_ID || "").trim();
+  const qty = Number(payload.printFeeQuantity || 0) || 0;
+  if (!printFeeVariantId || qty <= 0) return;
+
+  items.push({
+    id: printFeeVariantId,
+    quantity: qty,
+    properties: {
+      "Position": "Druckkosten",
+      "Hinweis": "Automatisch aus dem Protex Konfigurator",
+      "Preis pro Druck": payload.printCostPerPosition ? String(payload.printCostPerPosition) : ""
+    }
+  });
+}
 window.addEventListener("message", async (event) => {
   const data = event.data || {};
   if (data.type !== "PROTEX_ADD_TO_CART") return;
@@ -68,6 +83,8 @@ window.addEventListener("message", async (event) => {
       });
     }
 
+    addPrintFeeItem(items, payload);
+
     if (!items.length) {
       alert("Shopify konnte keine passende Variante finden: " + missing.join(", "));
       return;
@@ -92,3 +109,4 @@ window.addEventListener("message", async (event) => {
     alert("Produkt konnte nicht in den Shopify Warenkorb gelegt werden: " + error.message);
   }
 });
+
