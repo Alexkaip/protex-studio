@@ -960,22 +960,27 @@ function buildShopifyCartPayload(clientEmail,clientPhone,notes,requestId){
   const items=[];
   const missing=[];
   requestItems.forEach(item=>{
+    const handle=slugify(item.title||"");
     (item.quantities||[]).forEach(q=>{
       const qty=Number(q.qty)||0;
       if(qty<=0)return;
-      const variantId=findShopifyVariantId(item.shopifyVariantIds,q.size);
-      if(!variantId){
-        missing.push((item.title||"Produkt")+" / "+(q.size||"Größe"));
+      const size=q.size||"";
+      const variantId=findShopifyVariantId(item.shopifyVariantIds,size);
+      if(!variantId && !handle){
+        missing.push((item.title||"Produkt")+" / "+(size||"Groesse"));
         return;
       }
       items.push({
-        id:variantId,
+        id:variantId||"",
+        handle:handle,
+        size:size,
+        sku:handle+(size?"-"+slugify(size):""),
         quantity:qty,
         properties:{
           "Personalisierung":"Protex Konfigurator",
           "Protex Anfrage":requestId?String(requestId):"gespeichert",
           "Produkt":item.title||"",
-          "Größe":q.size||"",
+          "Groesse":size,
           "Design":designSummary(item.designs),
           "Druckpositionen":String(countPrintPositions(item)),
           "Kunden E-Mail":clientEmail||"",
@@ -1098,6 +1103,7 @@ const {data:requestRow,error}=await supabaseClient.from("requests").insert({
     sendBtn.disabled=false;sendBtn.textContent="In den Warenkorb / Anfrage senden";
   }
 }
+
 
 
 
