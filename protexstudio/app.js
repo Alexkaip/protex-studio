@@ -947,6 +947,54 @@ function blobToBase64(blob){
   });
 }
 
+function findShopifyVariantId(ids,size){
+  const source=ids&&typeof ids==="object"?ids:{};
+  const wanted=String(size||"").trim().toLowerCase();
+  for(const key of Object.keys(source)){
+    if(String(key||"").trim().toLowerCase()===wanted)return String(source[key]||"").trim();
+  }
+  return "";
+}
+
+function buildShopifyCartPayload(clientEmail,clientPhone,notes,requestId){
+  const items=[];
+  const missing=[];
+  requestItems.forEach(item=>{
+    (item.quantities||[]).forEach(q=>{
+      const qty=Number(q.qty)||0;
+      if(qty<=0)return;
+      const variantId=findShopifyVariantId(item.shopifyVariantIds,q.size);
+      if(!variantId){
+        missing.push((item.title||"Produkt")+" / "+(q.size||"Größe"));
+        return;
+      }
+      items.push({
+        id:variantId,
+        quantity:qty,
+        properties:{
+          "Personalisierung":"Protex Konfigurator",
+          "Protex Anfrage":requestId?String(requestId):"gespeichert",
+          "Produkt":item.title||"",
+          "Größe":q.size||"",
+          "Design":designSummary(item.designs),
+          "Druckpositionen":String(countPrintPositions(item)),
+          "Kunden E-Mail":clientEmail||"",
+          "Telefon":clientPhone||"",
+          "Anmerkung":notes||""
+        }
+      });
+    });
+  });
+  return {items,missing};
+}
+
+function sendToShopifyCart(payload){
+  if(window.parent && window.parent!==window){
+    window.parent.postMessage({type:"PROTEX_ADD_TO_CART",payload},"*");
+    return true;
+  }
+  return false;
+}
 async function sendOrder(){
   const clientEmail = document.getElementById("client-email").value.trim();
   const clientPhone = document.getElementById("client-phone")?.value.trim() || "";
@@ -1002,7 +1050,7 @@ async function sendOrder(){
   desc: item.desc || "",
   category: item.category || "",
   subcategory: item.subcategory || "",
-shopifyVariantIds: item.shopifyVariantIds || {},
+  shopifyVariantIds: item.shopifyVariantIds || {},
   quantities: item.quantities || [],
   designTexts: item.designTexts || [],
   designSummary: designSummary(item.designs),
@@ -1012,7 +1060,7 @@ shopifyVariantIds: item.shopifyVariantIds || {},
   designs: item.designs || createEmptyDesignState()
 }));
 
-const {error}=await supabaseClient.from("requests").insert({
+const {data:requestRow,error}=await supabaseClient.from("requests").insert({
   customer_email: clientEmail,
   phone: clientPhone,
   note: notes,
@@ -1025,11 +1073,20 @@ const {error}=await supabaseClient.from("requests").insert({
   },
   layout_images: layoutImages,
   status: "Neu"
-});
+}).select("id").single();
     if(error)throw error;
 
     status.textContent="Danke! Anfrage wurde gespeichert.";
-    alert("Anfrage wurde gespeichert. Wir melden uns ehestmÃ¶glich.");
+    const requestId=requestRow?.id||"";
+    const cartPayload=buildShopifyCartPayload(clientEmail,clientPhone,notes,requestId);
+    if(cartPayload.items.length && sendToShopifyCart(cartPayload)){
+      alert("Personalisierung gespeichert. Die Produkte werden jetzt in den Shopify Warenkorb gelegt.");
+      status.textContent="Wird an Shopify übergeben...";
+    }else if(cartPayload.missing.length){
+      alert("Anfrage wurde gespeichert. Für den Shopify Warenkorb fehlen noch Variant IDs bei: "+cartPayload.missing.join(", "));
+    }else{
+      alert("Anfrage wurde gespeichert. Wenn der Konfigurator in Shopify eingebettet ist, kann er danach in den Warenkorb übergeben.");
+    }
     requestItems=[];
     renderRequestList();
     document.getElementById("client-notes").value="";
@@ -1038,8 +1095,10 @@ const {error}=await supabaseClient.from("requests").insert({
     status.textContent="Fehler: "+error.message;
     alert("Speichern fehlgeschlagen: "+error.message+"\\n\\nBitte prÃ¼fe, ob die Supabase Tabelle requests angelegt wurde.");
   }finally{
-    sendBtn.disabled=false;sendBtn.textContent="Anfrage senden";
+    sendBtn.disabled=false;sendBtn.textContent="In den Warenkorb / Anfrage senden";
   }
 }
+
+
 
 

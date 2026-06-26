@@ -1,0 +1,49 @@
+{% comment %}
+  Protex Studio Shopify Section
+  In Shopify Theme als neue Section verwenden.
+  Die URL unten auf deine Protex/Vercel URL setzen.
+{% endcomment %}
+
+<section class="protex-configurator-section">
+  <iframe
+    id="protex-configurator-frame"
+    class="protex-configurator-frame"
+    src="{{ section.settings.configurator_url }}"
+    title="Protex Produkt-Konfigurator"
+    loading="lazy"
+  ></iframe>
+</section>
+
+<style>
+  .protex-configurator-section {
+    width: 100%;
+    min-height: 900px;
+  }
+
+  .protex-configurator-frame {
+    width: 100%;
+    min-height: 900px;
+    border: 0;
+    display: block;
+  }
+</style>
+
+{% schema %}
+{
+  "name": "Protex Konfigurator",
+  "settings": [
+    {
+      "type": "url",
+      "id": "configurator_url",
+      "label": "Konfigurator URL",
+      "default": "https://protex-studio.vercel.app/"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Protex Konfigurator"
+    }
+  ]
+}
+{% endschema %}
+
