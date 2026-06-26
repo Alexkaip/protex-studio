@@ -239,6 +239,7 @@ function bindEvents(){
   document.getElementById("start-back-btn").addEventListener("click",showCategoryStart);
   document.getElementById("back-to-products-btn").addEventListener("click",()=>showProductsForCategory(selectedCategory,selectedSubcategory));
   document.getElementById("logo-loader").addEventListener("change",handleLogoUpload);
+  bindFontPreview();
   document.getElementById("add-text-btn").addEventListener("click",addTextItem);
   document.getElementById("delete-selected-btn").addEventListener("click",deleteSelectedItem);
   document.getElementById("reset-side-btn").addEventListener("click",resetCurrentSide);
@@ -586,6 +587,25 @@ function handleLogoUpload(e){
   reader.readAsDataURL(file);
 }
 
+function bindFontPreview(){
+  ["text-input","text-color","font-select"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.addEventListener("input",updateFontPreview);
+    if(el)el.addEventListener("change",updateFontPreview);
+  });
+  updateFontPreview();
+}
+
+function updateFontPreview(){
+  const preview=document.getElementById("font-preview");
+  if(!preview)return;
+  const text=(document.getElementById("text-input")?.value||"").trim()||"Dein Text";
+  const color=document.getElementById("text-color")?.value||"#000000";
+  const font=document.getElementById("font-select")?.value||"Arial, sans-serif";
+  preview.textContent=text;
+  preview.style.color=color;
+  preview.style.fontFamily=font;
+}
 function addTextItem(){
   const text=document.getElementById("text-input").value.trim();
   if(!text){alert("Bitte zuerst Text eingeben.");return;}
@@ -1103,6 +1123,7 @@ const {data:requestRow,error}=await supabaseClient.from("requests").insert({
     sendBtn.disabled=false;sendBtn.textContent="In den Warenkorb / Anfrage senden";
   }
 }
+
 
 
 
