@@ -7,6 +7,11 @@ function normalizeProtexValue(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function normalizeProtexNumber(value) {
+  const number = Number(String(value || "0").replace(",", "."));
+  return Number.isFinite(number) ? number : 0;
+}
+
 async function loadShopifyProduct(handle) {
   const cleanHandle = String(handle || "").trim();
   if (!cleanHandle) return null;
@@ -25,7 +30,8 @@ async function resolveVariantId(item) {
 
   const wantedSize = normalizeProtexValue(item.size);
   const wantedSku = normalizeProtexValue(item.sku);
-  if (!wantedSize && !wantedSku) {
+  const wantedPrice = normalizeProtexNumber(item.printFeePrice);
+  if (!wantedSize && !wantedSku && wantedPrice <= 0) {
     const firstAvailable = product.variants.find((variant) => variant.available !== false) || product.variants[0];
     return firstAvailable ? firstAvailable.id : "";
   }
@@ -35,7 +41,10 @@ async function resolveVariantId(item) {
       .map(normalizeProtexValue)
       .filter(Boolean);
     const sku = normalizeProtexValue(variant.sku);
-    return optionValues.includes(wantedSize) || (wantedSku && sku === wantedSku);
+    const variantPrice = normalizeProtexNumber(variant.price);
+    return optionValues.includes(wantedSize) ||
+      (wantedSku && sku === wantedSku) ||
+      (wantedPrice > 0 && Math.abs(variantPrice - wantedPrice) < 0.01);
   });
 
   return variant ? variant.id : "";
@@ -44,19 +53,28 @@ async function resolveVariantId(item) {
 function addPrintFeeItem(items, payload) {
   const printFeeVariantId = String(window.PROTEX_PRINT_FEE_VARIANT_ID || "").trim();
   const printFeeHandle = String(window.PROTEX_PRINT_FEE_HANDLE || "dtf-druck").trim();
-  const qty = Number(payload.printFeeQuantity || 0) || 0;
-  if (qty <= 0) return;
+  const lines = Array.isArray(payload.printFeeLines) && payload.printFeeLines.length
+    ? payload.printFeeLines
+    : [{ price: payload.printCostPerPosition || 0, quantity: payload.printFeeQuantity || 0 }];
 
-  items.push({
-    id: printFeeHandle ? "" : (printFeeVariantId && printFeeVariantId !== "0" ? printFeeVariantId : ""),
-    handle: printFeeHandle,
-    quantity: qty,
-    label: "Druckkosten",
-    properties: {
-      "Position": "Druckkosten",
-      "Hinweis": "Automatisch aus dem Protex Konfigurator",
-      "Preis pro Druck": payload.printCostPerPosition ? String(payload.printCostPerPosition) : ""
-    }
+  lines.forEach((line) => {
+    const qty = Number(line.quantity || 0) || 0;
+    const price = normalizeProtexNumber(line.price);
+    if (qty <= 0 || price <= 0) return;
+
+    items.push({
+      id: printFeeHandle ? "" : (printFeeVariantId && printFeeVariantId !== "0" ? printFeeVariantId : ""),
+      handle: printFeeHandle,
+      size: String(price),
+      printFeePrice: price,
+      quantity: qty,
+      label: "Druckkosten " + price.toFixed(2),
+      properties: {
+        "Position": "Druckkosten",
+        "Hinweis": "Automatisch aus dem Protex Konfigurator",
+        "Preis pro Druck": price.toFixed(2)
+      }
+    });
   });
 }
 

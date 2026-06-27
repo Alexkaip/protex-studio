@@ -128,9 +128,21 @@ function countPrintPositions(item){
   const designs=item?.designs||createEmptyDesignState();
   return SIDES.reduce((sum,side)=>sum+(designs[side]||[]).filter(d=>d.type==="text" || d.type==="image").length,0);
 }
+function chargeablePrintPositions(item){
+  const rule=item?.printRule||"standard";
+  if(rule==="free_all"||rule==="set_included")return 0;
+  const designs=item?.designs||createEmptyDesignState();
+  return SIDES.reduce((sum,side)=>sum+(designs[side]||[]).filter(d=>rule==="free_text"?d.type==="image":(d.type==="text"||d.type==="image")).length,0);
+}
 
 function itemQuantity(item){
   return (item?.quantities||[]).reduce((s,q)=>s+(parseInt(q.qty,10)||0),0);
+}
+
+function getItemPrintCost(item){
+  const raw=item?.printCostPerPosition;
+  if(raw===""||raw==null)return printCostPerPosition;
+  return normalizePrintCost(raw);
 }
 
 function calculatePricing(items){
@@ -141,7 +153,8 @@ function calculatePricing(items){
     return sum + qty * price;
   },0);
   const totalPrintPositions=(items||[]).reduce((sum,item)=>sum+countPrintPositions(item),0);
-  const printCostAmount=(items||[]).reduce((sum,item)=>sum + itemQuantity(item) * countPrintPositions(item) * printCostPerPosition,0);
+  const totalChargedPrintPositions=(items||[]).reduce((sum,item)=>sum+chargeablePrintPositions(item),0);
+  const printCostAmount=(items||[]).reduce((sum,item)=>sum + itemQuantity(item) * chargeablePrintPositions(item) * getItemPrintCost(item),0);
   const subtotal=productSubtotal + printCostAmount;
   const quantityDiscountRate=getQuantityDiscountRate(totalQty);
   const quantityDiscountAmount=subtotal*quantityDiscountRate/100;
@@ -150,7 +163,9 @@ function calculatePricing(items){
   const voucherDiscountRate=voucher.valid ? voucher.rate : 0;
   const voucherDiscountAmount=afterQuantity*voucherDiscountRate/100;
   const total=afterQuantity-voucherDiscountAmount;
-  return {totalQty,productSubtotal,totalPrintPositions,printCostPerPosition,printCostAmount,subtotal,quantityDiscountRate,quantityDiscountAmount,afterQuantity,voucherCode:voucher.code,voucherValid:voucher.valid,voucherDiscountRate,voucherDiscountAmount,total};
+  const printPrices=[...new Set((items||[]).map(item=>getItemPrintCost(item)))];
+  const printCostLabel=printPrices.length===1?formatPrice(printPrices[0]):"variabel";
+  return {totalQty,productSubtotal,totalPrintPositions,totalChargedPrintPositions,printCostPerPosition:printPrices.length===1?printPrices[0]:printCostPerPosition,printCostLabel,printCostMixed:printPrices.length>1,printCostAmount,subtotal,quantityDiscountRate,quantityDiscountAmount,afterQuantity,voucherCode:voucher.code,voucherValid:voucher.valid,voucherDiscountRate,voucherDiscountAmount,total};
 }
 
 function renderPricingHtml(pricing,title){
@@ -163,7 +178,7 @@ function renderPricingHtml(pricing,title){
   return '<div class="pricing-title">'+title+'</div>'+
     '<div>Gesamtmenge: <strong>'+pricing.totalQty+' Stück</strong></div>'+
     '<div>Produktpreis: <strong>€ '+formatPrice(pricing.productSubtotal||0)+'</strong></div>'+
-    '<div>Druckkosten: <strong>€ '+formatPrice(pricing.printCostAmount||0)+'</strong> ('+(pricing.totalPrintPositions||0)+' Druck(e) × € '+formatPrice(pricing.printCostPerPosition||0)+' × Stückzahl)</div>'+
+    '<div>Druckkosten: <strong>EUR '+formatPrice(pricing.printCostAmount||0)+'</strong> ('+((pricing.totalChargedPrintPositions||pricing.totalPrintPositions||0))+' verrechnete Druck(e) x EUR '+(pricing.printCostMixed?pricing.printCostLabel:formatPrice(pricing.printCostPerPosition||0))+' x Stueckzahl)</div>'+
     '<div>Warenwert: <strong>€ '+formatPrice(pricing.subtotal)+'</strong></div>'+
     quantityDiscountLine+
     voucherDiscountLine+
@@ -186,7 +201,7 @@ function renderActiveDiscountHtml(pricing){
 function getCurrentPricingItems(){
   const prod=filteredProducts[currentProductIndex];
   if(!prod) return [];
-  return [{price:prod.price,quantities:getQuantities(),designs:designState}];
+  return [{price:prod.price,printCostPerPosition:prod.printCostPerPosition,quantities:getQuantities(),designs:designState}];
 }
 
 const pImg = document.getElementById("product-img");
@@ -278,7 +293,7 @@ async function loadProducts(){
   dropdownTrigger.textContent="Produkte werden geladen...";
   const {data,error}=await supabaseClient.from("products").select("*").eq("active",true).order("id",{ascending:true});
   if(error)throw error;
-  products=(data||[]).map(productFromRow).filter(p=>p.personalizable!==false);
+  products=(data||[]).map(productFromRow).filter(p=>p.personalizable!==false && !["shop_only","print_fee"].includes(p.productType));
 }
 
 async function loadCategories(){
@@ -773,6 +788,9 @@ function addCurrentProductToRequest(){
   requestItems.push({
     title:prod.title,
     price:prod.price,
+    printCostPerPosition:prod.printCostPerPosition,
+    printRule:prod.printRule||"standard",
+    productType:prod.productType||"configurator",
     desc:prod.desc||"",
     category:prod.category||"",
     subcategory:prod.subcategory||"",
@@ -868,7 +886,7 @@ function buildMailText(){
     "- Gesamtmenge: "+pricing.totalQty+" Stück\n"+
     "- Produktpreis: € "+formatPrice(pricing.productSubtotal||0)+"\n"+
     "- Druckpositionen: "+(pricing.totalPrintPositions||0)+"\n"+
-    "- Druckkosten pro Druck: € "+formatPrice(pricing.printCostPerPosition||0)+"\n"+
+    "- Druckkosten pro Druck: "+(pricing.printCostMixed?pricing.printCostLabel:("EUR "+formatPrice(pricing.printCostPerPosition||0)))+"\\n"+
     "- Druckkosten gesamt: € "+formatPrice(pricing.printCostAmount||0)+"\n"+
     "- Warenwert: € "+formatPrice(pricing.subtotal)+"\n"+
     (pricing.quantityDiscountRate>0 ? "- Mengenrabatt: "+pricing.quantityDiscountRate+"% (-€ "+formatPrice(pricing.quantityDiscountAmount)+")\n" : "")+
@@ -979,14 +997,18 @@ function findShopifyVariantId(ids,size){
 function buildShopifyCartPayload(clientEmail,clientPhone,notes,requestId){
   const items=[];
   const missing=[];
-  let printFeeQuantity=0;
+  const printFeeMap=new Map();
   requestItems.forEach(item=>{
     const handle=slugify(item.title||"");
     (item.quantities||[]).forEach(q=>{
       const qty=Number(q.qty)||0;
       if(qty<=0)return;
-      const printPositions=countPrintPositions(item);
-      printFeeQuantity += qty * printPositions;
+      const printPositions=chargeablePrintPositions(item);
+      const itemPrintCost=getItemPrintCost(item);
+      if(printPositions>0 && itemPrintCost>0){
+        const key=formatPrice(itemPrintCost);
+        printFeeMap.set(key,(printFeeMap.get(key)||0)+qty*printPositions);
+      }
       const size=q.size||"";
       const variantId=findShopifyVariantId(item.shopifyVariantIds,size);
       if(!variantId && !handle){
@@ -1013,7 +1035,9 @@ function buildShopifyCartPayload(clientEmail,clientPhone,notes,requestId){
       });
     });
   });
-  return {items,missing,printFeeQuantity,printCostPerPosition};
+  const printFeeLines=[...printFeeMap.entries()].map(([price,quantity])=>({price,quantity}));
+  const printFeeQuantity=printFeeLines.reduce((sum,line)=>sum+line.quantity,0);
+  return {items,missing,printFeeLines,printFeeQuantity,printCostPerPosition};
 }
 
 function sendToShopifyCart(payload){
@@ -1083,8 +1107,9 @@ async function sendOrder(){
   designTexts: item.designTexts || [],
   designSummary: designSummary(item.designs),
   printPositions: countPrintPositions(item),
-  printCostPerPosition: printCostPerPosition,
-  printCostTotal: itemQuantity(item) * countPrintPositions(item) * printCostPerPosition,
+  chargedPrintPositions: chargeablePrintPositions(item),
+  printCostPerPosition: getItemPrintCost(item),
+  printCostTotal: itemQuantity(item) * chargeablePrintPositions(item) * getItemPrintCost(item),
   designs: item.designs || createEmptyDesignState()
 }));
 
@@ -1126,6 +1151,21 @@ const {data:requestRow,error}=await supabaseClient.from("requests").insert({
     sendBtn.disabled=false;sendBtn.textContent="In den Warenkorb / Anfrage senden";
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

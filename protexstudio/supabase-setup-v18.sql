@@ -90,6 +90,10 @@ alter table public.products add column if not exists image_right_sleeve text;
 alter table public.products add column if not exists subcategory text;
 alter table public.products add column if not exists shopify_variant_ids jsonb not null default '{}'::jsonb;
 alter table public.products add column if not exists personalizable boolean not null default true;
+alter table public.products add column if not exists print_cost_per_position numeric;
+alter table public.products add column if not exists product_type text not null default 'configurator';
+alter table public.products add column if not exists print_rule text not null default 'standard';
+alter table public.requests add column if not exists internal_note text;
 
 
 -- V25: Einstellungen für Mengenrabatte
