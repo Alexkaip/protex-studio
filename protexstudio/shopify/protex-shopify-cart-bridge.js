@@ -61,6 +61,11 @@ function addPrintFeeItem(items, payload) {
 }
 
 async function addCartItem(item) {
+  const variantId = item.id || await resolveVariantId(item);
+  if (!variantId) {
+    throw new Error((item.label || item.properties?.Produkt || item.handle || "Produkt") + ": keine passende Shopify Variante gefunden");
+  }
+
   const response = await fetch("/cart/add.js", {
     method: "POST",
     headers: {
@@ -68,7 +73,7 @@ async function addCartItem(item) {
       "Accept": "application/json"
     },
     body: JSON.stringify({
-      id: item.id,
+      id: variantId,
       quantity: item.quantity || 1,
       properties: item.properties || {}
     })
