@@ -25,6 +25,10 @@ async function resolveVariantId(item) {
 
   const wantedSize = normalizeProtexValue(item.size);
   const wantedSku = normalizeProtexValue(item.sku);
+  if (!wantedSize && !wantedSku) {
+    const firstAvailable = product.variants.find((variant) => variant.available !== false) || product.variants[0];
+    return firstAvailable ? firstAvailable.id : "";
+  }
 
   const variant = product.variants.find((variant) => {
     const optionValues = [variant.option1, variant.option2, variant.option3, variant.title]
@@ -39,11 +43,13 @@ async function resolveVariantId(item) {
 
 function addPrintFeeItem(items, payload) {
   const printFeeVariantId = String(window.PROTEX_PRINT_FEE_VARIANT_ID || "").trim();
+  const printFeeHandle = String(window.PROTEX_PRINT_FEE_HANDLE || "dtf-druck").trim();
   const qty = Number(payload.printFeeQuantity || 0) || 0;
-  if (!printFeeVariantId || printFeeVariantId === "0" || qty <= 0) return;
+  if (qty <= 0) return;
 
   items.push({
-    id: printFeeVariantId,
+    id: printFeeVariantId && printFeeVariantId !== "0" ? printFeeVariantId : "",
+    handle: printFeeHandle,
     quantity: qty,
     label: "Druckkosten",
     properties: {
