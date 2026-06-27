@@ -48,7 +48,7 @@ function addPrintFeeItem(items, payload) {
   if (qty <= 0) return;
 
   items.push({
-    id: printFeeVariantId && printFeeVariantId !== "0" ? printFeeVariantId : "",
+    id: printFeeHandle ? "" : (printFeeVariantId && printFeeVariantId !== "0" ? printFeeVariantId : ""),
     handle: printFeeHandle,
     quantity: qty,
     label: "Druckkosten",
