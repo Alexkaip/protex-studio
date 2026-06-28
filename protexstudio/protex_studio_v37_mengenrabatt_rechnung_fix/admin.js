@@ -1043,7 +1043,7 @@ async function importCsv(e){
   const parsed=parseCsv(text);
   if(parsed.length<2){alert("Keine Produkte gefunden.");e.target.value="";return}
   const headers=parsed[0].map(normalizeHeader);
-  const isSevdeskArticleCsv=headers.includes(normalizeHeader("Artikelnumer"))&&headers.includes(normalizeHeader("Umsatzsteuer"))&&headers.includes(normalizeHeader("Einkaufspreis"))&&headers.includes(normalizeHeader("Verkaufspreis"));
+  const isSevdeskArticleCsv=(headers.includes(normalizeHeader("Artikelnumer"))||headers.includes(normalizeHeader("Artikelnummer")))&&headers.includes(normalizeHeader("Umsatzsteuer"))&&headers.includes(normalizeHeader("Einkaufspreis"))&&headers.includes(normalizeHeader("Verkaufspreis"));
   const hasSubcategory=headers.includes(normalizeHeader("Unterkategorie"));
   const hasShopifyVariantIds=headers.includes(normalizeHeader("ShopifyVariantIDs"));
   const hasPrintCost=headers.includes(normalizeHeader("DruckkostenProDruck"))||headers.includes(normalizeHeader("Druckkosten"))||headers.includes(normalizeHeader("Druckkosten pro Druck"));
@@ -1105,8 +1105,8 @@ async function importCsv(e){
     };
     const articleNumberKey=normalizeArticleNumber(product.sevdeskArticleNumber);
     if(articleNumberKey){
-      if(existingArticleNumbers.has(articleNumberKey)){alert("Import gestoppt: Artikelnummer "+product.sevdeskArticleNumber+" gibt es bereits bei \""+existingArticleNumbers.get(articleNumberKey)+"\".");e.target.value="";return;}
-      if(importArticleNumbers.has(articleNumberKey)){alert("Import gestoppt: Artikelnummer "+product.sevdeskArticleNumber+" ist in der CSV doppelt bei \""+importArticleNumbers.get(articleNumberKey)+"\" und \""+product.title+"\".");e.target.value="";return;}
+      if(existingArticleNumbers.has(articleNumberKey)){skipped++;continue;}
+      if(importArticleNumbers.has(articleNumberKey)){skipped++;continue;}
       importArticleNumbers.set(articleNumberKey,product.title);
     }
     rows.push(rowFromProduct(product));
