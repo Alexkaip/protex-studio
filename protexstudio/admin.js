@@ -890,7 +890,7 @@ function exportSevdeskProductCsv(){
       p.sevdeskStockEnabled===true?"1":"0",
       formatSevdeskDecimal(p.sevdeskTaxRate,"20,00"),
       formatSevdeskDecimal(p.sevdeskPurchasePrice,"0,00"),
-      formatSevdeskDecimal(p.price,"0,00"),
+     formatSevdeskDecimal(grossToNetPrice(p.price,p.sevdeskTaxRate),"0,00"),
       p.sevdeskCategory||"Standard",
       p.desc||""
     ]);
@@ -906,6 +906,14 @@ function formatSevdeskDecimal(value,fallback){
   const n=Number(normalized);
   if(!Number.isFinite(n))return fallback||"";
   return n.toFixed(2).replace(".",",");
+}
+
+function grossToNetPrice(grossValue,taxRateValue){
+  const gross=parseMoneyValue(grossValue);
+  if(gross==null)return "";
+  const taxRate=parseMoneyValue(taxRateValue);
+  const factor=taxRate!=null&&taxRate>0 ? 1+(taxRate/100) : 1;
+  return gross/factor;
 }
 function exportShopifyCsv(){
   const rows=[[
