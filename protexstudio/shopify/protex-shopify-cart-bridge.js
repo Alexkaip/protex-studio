@@ -88,6 +88,30 @@ function findMappedProduct(item) {
   }) || null;
 }
 
+function findVariantIdInList(variants, item, wantedOption, wantedSize, wantedSku, wantedPrice) {
+  if (!Array.isArray(variants) || !variants.length) return "";
+  const variant = variants.find((variant) => {
+    const optionValues = [variant.option1, variant.option2, variant.option3, variant.title]
+      .map(normalizeProtexValue)
+      .filter(Boolean);
+    const optionTexts = [variant.option1, variant.option2, variant.option3, variant.title]
+      .map(normalizeProtexText)
+      .filter(Boolean);
+    const sku = normalizeProtexValue(variant.sku);
+    const variantPrice = normalizeProtexNumber(variant.price);
+    return (wantedOption && optionTexts.includes(wantedOption)) ||
+      (wantedSize && optionValues.includes(wantedSize)) ||
+      (wantedSku && sku === wantedSku) ||
+      (wantedPrice > 0 && Math.abs(variantPrice - wantedPrice) < 0.01);
+  });
+  if (variant?.id) return variant.id;
+  if (item.allowFirstVariant === true || item.shopOnly === true) {
+    const firstAvailable = variants.find((variant) => variant.available !== false) || variants[0];
+    return firstAvailable?.id || "";
+  }
+  return "";
+}
+
 async function resolveVariantId(item) {
   if (item.id) return item.id;
 
@@ -96,13 +120,21 @@ async function resolveVariantId(item) {
   const wantedSku = normalizeProtexValue(item.sku);
   const wantedPrice = normalizeProtexNumber(item.printFeePrice);
   const mappedProduct = findMappedProduct(item);
+  const mappedVariantId = findVariantIdInList(mappedProduct?.variants, item, wantedOption, wantedSize, wantedSku, wantedPrice);
+  if (mappedVariantId) return mappedVariantId;
+
   if (item.allowFirstVariant === true && !wantedOption && !wantedSize && !wantedSku && mappedProduct?.firstVariantId) {
     return mappedProduct.firstVariantId;
   }
 
   const productHandle = mappedProduct?.handle || item.handle;
   const product = await loadShopifyProduct(productHandle) || await searchShopifyProduct(item);
-  if (!product || !Array.isArray(product.variants)) return "";
+  if (!product || !Array.isArray(product.variants)) {
+    if ((item.allowFirstVariant === true || item.shopOnly === true) && mappedProduct?.firstVariantId) {
+      return mappedProduct.firstVariantId;
+    }
+    return "";
+  }
 
   if ((item.allowFirstVariant === true || item.shopOnly === true) && !wantedOption && !wantedSize && !wantedSku && wantedPrice <= 0) {
     const firstAvailable = product.variants.find((variant) => variant.available !== false) || product.variants[0];
@@ -114,29 +146,7 @@ async function resolveVariantId(item) {
     return firstAvailable ? firstAvailable.id : "";
   }
 
-  const variant = product.variants.find((variant) => {
-    const optionValues = [variant.option1, variant.option2, variant.option3, variant.title]
-      .map(normalizeProtexValue)
-      .filter(Boolean);
-    const optionTexts = [variant.option1, variant.option2, variant.option3, variant.title]
-      .map(normalizeProtexText)
-      .filter(Boolean);
-    const sku = normalizeProtexValue(variant.sku);
-    const variantPrice = normalizeProtexNumber(variant.price);
-    return (wantedOption && optionTexts.includes(wantedOption)) ||
-      optionValues.includes(wantedSize) ||
-      (wantedSku && sku === wantedSku) ||
-      (wantedPrice > 0 && Math.abs(variantPrice - wantedPrice) < 0.01);
-  });
-
-  if (variant) return variant.id;
-
-  if (item.shopOnly === true) {
-    const firstAvailable = product.variants.find((variant) => variant.available !== false) || product.variants[0];
-    return firstAvailable ? firstAvailable.id : "";
-  }
-
-  return "";
+  return findVariantIdInList(product.variants, item, wantedOption, wantedSize, wantedSku, wantedPrice);
 }
 
 function addPrintFeeItem(items, payload) {
