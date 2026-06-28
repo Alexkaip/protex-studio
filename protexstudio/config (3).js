@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="de">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Protex Online Admin</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<header class="header container"><div><div class="brand">Protex Online Admin</div><div class="sub">Produkte & Kategorien live pflegen</div></div><div class="btn-row admin-top-actions"><a class="btn btn-light" href="index.html">Kundenansicht</a><button class="btn btn-light hidden" id="toggle-requests-btn" type="button">Anfragen <span id="request-count-badge" class="top-badge hidden">0</span></button><button class="btn btn-light hidden" id="toggle-discounts-btn" type="button">Mengenrabatte</button><button class="btn btn-light hidden" id="toggle-coupons-btn" type="button">Gutscheincodes</button><button class="btn btn-light hidden" id="toggle-stats-btn" type="button">Besucher</button><button class="btn btn-secondary" id="logout-btn" type="button">Logout</button></div></header>
+<main class="container"><div id="config-warning" class="notice warn hidden"></div>
+<section id="login-card" class="card" style="max-width:460px;margin:40px auto;"><h1>Admin Login</h1><div class="form-group"><label>E-Mail</label><input type="email" id="login-email"></div><div class="form-group"><label>Passwort</label><input type="password" id="login-password"></div><button class="btn" id="login-btn" type="button">Einloggen</button><div id="login-status" class="sub" style="margin-top:10px"></div></section>
+<section id="discount-panel" class="card hidden" style="margin-bottom:14px;">
+  <div class="start-head">
+    <div>
+      <h2 style="margin:0 0 6px;">Mengenrabatte</h2>
+      <div class="sub">Diese Staffel sieht der Kunde im Konfigurator. Hier kannst du sie unabhaengig vom Produkt bearbeiten.</div>
+    </div>
+    <button class="btn btn-light" id="close-discounts-btn" type="button" style="max-width:180px;">Schliessen</button>
+  </div>
+  <div id="discount-settings-list" class="discount-settings-list"></div>
+  <div class="btn-row" style="max-width:520px;">
+    <button class="btn btn-light" id="add-discount-row-btn" type="button">Rabattzeile hinzufuegen</button>
+    <button class="btn" id="save-discounts-btn" type="button">Mengenrabatte speichern</button>
+  </div>
+  <div id="discount-save-status" class="sub"></div>
+</section>
+<section id="coupon-panel" class="card hidden" style="margin-bottom:14px;">
+  <div class="start-head">
+    <div>
+      <h2 style="margin:0 0 6px;">Gutscheincodes</h2>
+      <div class="sub">Diese Codes sind nur im Admin sichtbar. Der Kunde sieht nur ein leeres Gutscheincode-Feld.</div>
+    </div>
+    <button class="btn btn-light" id="close-coupons-btn" type="button" style="max-width:180px;">Schliessen</button>
+  </div>
+  <div id="coupon-settings-list" class="coupon-settings-list"></div>
+  <div class="btn-row" style="max-width:620px;">
+    <button class="btn btn-light" id="add-coupon-row-btn" type="button">Gutscheincode hinzufuegen</button>
+    <button class="btn" id="save-coupons-btn" type="button">Gutscheincodes speichern</button>
+  </div>
+  <div id="coupon-save-status" class="sub"></div>
+</section>
+<section id="printcost-panel" class="card hidden" style="margin-bottom:14px;">
+  <div class="start-head">
+    <div>
+      <h2 style="margin:0 0 6px;">Druckkosten</h2>
+      <div class="sub">Preis pro Druckposition. Text und Grafik zaehlen jeweils als eigener Druck und werden mit der Stueckzahl multipliziert.</div>
+    </div>
+    <button class="btn btn-light" id="close-printcost-btn" type="button" style="max-width:180px;">Schliessen</button>
+  </div>
+  <div class="form-group" style="max-width:360px;">
+    <label>Preis je Druck in EUR</label>
+    <input type="number" min="0" step="0.01" id="print-cost-input" value="5">
+  </div>
+  <div class="btn-row" style="max-width:520px;">
+    <button class="btn" id="save-printcost-btn" type="button">Druckkosten speichern</button>
+    <div></div>
+  </div>
+  <div id="printcost-save-status" class="sub"></div>
+</section>
+<section id="stats-panel" class="card hidden" style="margin-bottom:14px;">
+  <div class="start-head">
+    <div>
+      <h2 style="margin:0 0 6px;">Besucherzaehler</h2>
+      <div class="sub">Zaehlt Aufrufe der Kundenansicht. Mehrfache Aufrufe koennen mehrfach gezaehlt werden.</div>
+    </div>
+    <button class="btn btn-light" id="close-stats-btn" type="button" style="max-width:180px;">Schliessen</button>
+  </div>
+  <div id="visitor-stats-box" class="visitor-stats-grid"><div class="sub">Besucher werden geladen...</div></div>
+  <div class="btn-row" style="max-width:520px;">
+    <button class="btn btn-light" id="reload-stats-btn" type="button">Neu laden</button>
+    <button class="btn btn-secondary" id="clear-stats-btn" type="button">Zaehler loeschen</button>
+  </div>
+  <div id="visitor-stats-status" class="sub"></div>
+</section>
+<section id="admin-area" class="admin-layout hidden">
+<div class="card">
+<h2>Kategorien</h2><div class="btn-row"><input type="text" id="new-category" placeholder="z.B. T-Shirt, Hose, Serien"><button class="btn btn-light" id="add-category-btn" type="button">Hinzufuegen</button></div><div class="form-group"><label>Kategoriebild optional</label><input type="file" id="new-category-image" accept="image/*"></div><div id="category-list" class="category-list"></div><h2>Unterkategorien</h2><div class="subcategory-manager"><div class="form-group"><label>Hauptkategorie</label><select id="subcategory-parent"></select></div><div class="btn-row subcategory-add-row"><input type="text" id="new-subcategory" placeholder="z.B. Kurzarm"><button class="btn btn-light" id="add-subcategory-btn" type="button">Hinzufuegen</button></div><div class="form-group"><label>Unterkategoriebild optional</label><input type="file" id="new-subcategory-image" accept="image/*"></div><div id="subcategory-list" class="category-list"></div></div>
+<button class="btn" id="open-product-modal-btn" type="button">Neues Produkt anlegen</button>
+<div id="product-form-modal" class="product-modal hidden"><div class="product-modal-dialog"><div class="product-modal-head"><h2 id="form-title">Produkt anlegen</h2><button class="modal-close-btn" id="close-product-modal-btn" type="button">Schliessen</button></div><input type="hidden" id="edit-id"><div class="product-form-grid">
+<div class="form-group"><label>Produktname</label><input type="text" id="p-title"></div><div class="form-group"><label>Produkt-Typ</label><select id="p-product-type"><option value="configurator">Konfigurator-Produkt</option><option value="shop_only">Nur Shop</option><option value="set">Set-Angebot</option><option value="print_fee">Druckkosten/Zubehoer</option></select></div>
+<div class="form-group"><label>Kategorie</label><select id="p-category"></select></div>
+<div class="form-group"><label>Unterkategorie</label><select id="p-subcategory"></select></div>
+<div class="form-group wide"><label>Beschreibung</label><textarea id="p-desc" rows="4"></textarea></div>
+<div class="form-group"><label>Verkaufspreis brutto</label><input type="text" id="p-price"><div class="sub">Preis fuer Kunden und Shopify inklusive MwSt.</div></div><div class="form-group"><label>Druckkosten pro Druck optional</label><input type="number" min="0" step="0.01" id="p-print-cost" placeholder="leer = Standard"><div class="sub">0 = gratis, leer = Standard.</div></div><div class="form-group"><label>Druck-Regel optional</label><select id="p-print-rule"><option value="standard">Standard / Feldwert verwenden</option><option value="free_text">Text gratis, Logo kostet</option><option value="free_all">Alle Drucke gratis</option><option value="set_included">Im Setpreis enthalten</option></select></div><h2 class="form-section-title">sevDesk Artikel</h2><div class="form-group"><label>Artikelnummer</label><input type="text" id="p-sevdesk-article-number" placeholder="z.B. 902514"><div class="sub">Muss eindeutig sein.</div></div><div class="form-group"><label>Einheit</label><input type="text" id="p-sevdesk-unit" value="Stk"></div><div class="form-group"><label>Umsatzsteuer</label><input type="text" id="p-sevdesk-tax-rate" value="20,00"></div><div class="form-group"><label>Bestand</label><input type="text" id="p-sevdesk-stock" value="0,00"></div><div class="form-group"><label>Einkaufspreis netto</label><input type="text" id="p-sevdesk-purchase-price" placeholder="z.B. 9,00"><div class="sub">Fuer die Gewinnrechnung.</div></div><div class="form-group"><label>sevDesk Kategorie</label><input type="text" id="p-sevdesk-category" value="Standard"></div><div class="form-group check-field"><label><input type="checkbox" id="p-sevdesk-stock-enabled"> Bestand in sevDesk aktivieren</label></div>
+<h2 class="form-section-title">Shopify & Bilder</h2><div class="form-group"><label>Groessen</label><input type="text" id="p-sizes" value="S,M,L,XL,XXL"></div><div class="form-group wide"><label>Shopify Variant IDs optional</label><textarea id="p-shopify-variants" rows="3" placeholder="S=1234567890&#10;M=1234567891&#10;L=1234567892"></textarea><div class="sub">Optional fuer Groessen-Varianten. Bei Farben bitte unten direkt in der jeweiligen Farbe die Shopify Variant ID eintragen.</div></div>
+<div class="form-group"><label>Bild Vorderseite</label><input type="file" id="p-front" accept="image/*"></div>
+<div class="form-group"><label>Bild Rueckseite</label><input type="file" id="p-back" accept="image/*"></div>
+<div class="form-group"><label>Bild linker Aermel (optional)</label><input type="file" id="p-left-sleeve" accept="image/*"></div>
+<div class="form-group"><label>Bild rechter Aermel (optional)</label><input type="file" id="p-right-sleeve" accept="image/*"></div>
+<h2 class="form-section-title">Farbvarianten</h2><div class="form-group wide"><div class="sub">Optional: Wenn ein Produkt mehrere Farben hat, hier pro Farbe eigene Bilder hinterlegen.</div><div id="color-variant-list" class="color-variant-list"></div><button class="btn btn-light" id="add-color-variant-btn" type="button">Farbe hinzufuegen</button></div>
+<div class="form-group check-field"><label><input type="checkbox" id="p-active" checked> Aktiv</label></div><div class="form-group check-field"><label><input type="checkbox" id="p-personalizable" checked> Personalisierbar im Konfigurator</label></div>
+</div><div class="product-modal-actions"><button class="btn" id="save-product-btn" type="button">Speichern</button><button class="btn btn-light" id="reset-form-btn" type="button">Abbrechen</button><div id="save-status" class="sub"></div></div></div></div>
+<h2>CSV Import/Export</h2><div class="form-group"><label>CSV importieren</label><input type="file" id="csv-import" accept=".csv,text/csv"></div><div class="btn-row"><button class="btn btn-secondary" id="csv-export-btn" type="button">Interner Export</button><button class="btn btn-secondary" id="shopify-export-btn" type="button">Shopify Export</button></div><div class="btn-row"><button class="btn btn-secondary" id="sevdesk-product-export-btn" type="button">sevDesk Artikel Export verwenden</button><div></div></div><div class="sub">Nur diese Datei bei sevDesk importieren: sevdesk-artikel-export.csv. Der interne Export ist nicht fuer sevDesk. Verkaufspreis wird netto exportiert, weil Umsatzsteuer separat uebergeben wird.</div><div class="notice warn">CSV importiert Daten. Bildlinks koennen direkt in der Excel/CSV eingefuegt werden.</div>
+</div>
+<div class="card"><section id="requests-section" class="hidden"><h2>Anfragen</h2><div class="btn-row"><button class="btn btn-light" id="reload-requests-btn" type="button">Anfragen neu laden</button><button class="btn btn-secondary" id="sevdesk-export-btn" type="button">sevDesk Export</button></div><div id="admin-request-list" class="admin-request-list"></div><div id="admin-request-detail" class="admin-request-detail notice"><div class="sub">Anfrage anklicken fuer Details.</div></div></section>
+<h2>Produkte</h2><div class="btn-row"><input type="text" id="search" placeholder="Suchen..."><button class="btn btn-light" id="reload-btn" type="button">Neu laden</button></div><div id="product-profit-summary" class="notice hidden"></div><div id="product-list" class="product-list"></div></div>
+</section></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="config.js"></script><script src="supabase-helper.js"></script><script src="admin.js"></script>
+</body></html>
+
+
+
+
+
+
+
+
