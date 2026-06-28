@@ -6,6 +6,7 @@ let currentProductIndex = 0;
 let selectedCategory = "";
 let selectedSubcategory = "";
 let currentSide = "front";
+let selectedColorIndex = -1;
 let requestItems = [];
 let selectedItemId = null;
 let designState = createEmptyDesignState();
@@ -17,12 +18,36 @@ function createEmptyDesignState(){return {front:[],back:[],leftSleeve:[],rightSl
 function getSideLabel(side){return SIDE_LABELS[side]||side;}
 function getSideImage(product,side){
   if(!product)return "";
+  const color=getSelectedColorVariant(product);
+  if(color?.images?.[side])return color.images[side];
   if(side==="back")return product.imgBack||"";
   if(side==="leftSleeve")return product.imgLeftSleeve||"";
   if(side==="rightSleeve")return product.imgRightSleeve||"";
   return product.imgFront||"";
 }
 function sideHasImage(product,side){return !!getSideImage(product,side);}
+
+function getColorVariants(product){
+  return Array.isArray(product?.colorVariants)?product.colorVariants.filter(v=>v.name||v.images?.front):[];
+}
+
+function getSelectedColorVariant(product){
+  const variants=getColorVariants(product);
+  return selectedColorIndex>=0 ? variants[selectedColorIndex] : null;
+}
+
+function getProductPreviewImage(product){
+  return getColorVariants(product)[0]?.images?.front || product?.imgFront || "";
+}
+
+function getCurrentProductImages(product){
+  return {
+    front:getSideImage(product,"front"),
+    back:getSideImage(product,"back"),
+    leftSleeve:getSideImage(product,"leftSleeve"),
+    rightSleeve:getSideImage(product,"rightSleeve")
+  };
+}
 
 
 const DEFAULT_COUPON_CODES = [
@@ -334,12 +359,12 @@ function renderStartCategories(){
     return;
   }
 
-  const allBtn=createCategoryCard("Alle Produkte",products.length,products[0]?.imgFront||"",()=>showProductsForCategory(""));
+  const allBtn=createCategoryCard("Alle Produkte",products.length,getProductPreviewImage(products[0]),()=>showProductsForCategory(""));
   startCategoryGrid.appendChild(allBtn);
 
   cats.forEach(cat=>{
     const catProducts=products.filter(p=>p.category===cat);
-    const img=catProducts.find(p=>p.imgFront)?.imgFront||"";
+    const img=getProductPreviewImage(catProducts.find(p=>getProductPreviewImage(p)));
     startCategoryGrid.appendChild(createCategoryCard(cat,catProducts.length,img,()=>showSubcategoriesForCategory(cat)));
   });
 }
@@ -366,12 +391,12 @@ function showSubcategoriesForCategory(cat){
   startCategoryGrid.classList.remove("hidden");
   startCategoryGrid.innerHTML="";
 
-  const allImg=catProducts.find(p=>p.imgFront)?.imgFront||"";
+  const allImg=getProductPreviewImage(catProducts.find(p=>getProductPreviewImage(p)));
   startCategoryGrid.appendChild(createCategoryCard("Alle "+selectedCategory,catProducts.length,allImg,()=>showProductsForCategory(selectedCategory,"")));
 
   subs.forEach(sub=>{
     const subProducts=catProducts.filter(p=>p.subcategory===sub);
-    const img=subProducts.find(p=>p.imgFront)?.imgFront||"";
+    const img=getProductPreviewImage(subProducts.find(p=>getProductPreviewImage(p)));
     startCategoryGrid.appendChild(createCategoryCard(sub,subProducts.length,img,()=>showProductsForCategory(selectedCategory,sub)));
   });
   window.scrollTo({top:0,behavior:"smooth"});
@@ -425,7 +450,7 @@ function showProductsForCategory(cat,subcat=""){
     const card=document.createElement("button");
     card.className="start-product-card";
     card.type="button";
-    card.innerHTML='<div class="start-product-img"><img src="'+(p.imgFront||"")+'" alt=""></div><div class="start-product-name"></div><div class="sub"></div><div class="dropdown-price"></div>';
+    card.innerHTML='<div class="start-product-img"><img src="'+getProductPreviewImage(p)+'" alt=""></div><div class="start-product-name"></div><div class="sub"></div><div class="dropdown-price"></div>';
     card.querySelector(".start-product-name").textContent=p.title;
     card.querySelector(".sub").textContent=categoryText(p)+(p.desc?"  -  "+p.desc:"");
     card.querySelector(".dropdown-price").textContent="EUR "+formatPrice(p.price);
@@ -450,6 +475,8 @@ function resetConfiguratorPreview(){
   cTitle.innerHTML="<strong>Kein Produkt gewaehlt</strong>";
   cDesc.textContent="Bitte zuerst Kategorie und Produkt auswaehlen.";
   cPrice.textContent="";
+  const colorBox=document.getElementById("color-choice-box");if(colorBox)colorBox.classList.add("hidden");
+  const colorList=document.getElementById("color-choice-list");if(colorList)colorList.innerHTML="";
   document.getElementById("size-grid").innerHTML="";
   const totalBox=document.getElementById("total-box"); if(totalBox){totalBox.classList.add("hidden"); totalBox.innerHTML="";}
 }
@@ -463,7 +490,7 @@ function buildDropdown(){
   filteredProducts.forEach((p,idx)=>{
     const opt=document.createElement("div");
     opt.className="dropdown-option";
-    opt.innerHTML='<img class="dropdown-thumb" src="'+p.imgFront+'" alt=""><div><div class="dropdown-title"></div><div class="dropdown-price">EUR '+formatPrice(p.price)+'</div></div>';
+    opt.innerHTML='<img class="dropdown-thumb" src="'+getProductPreviewImage(p)+'" alt=""><div><div class="dropdown-title"></div><div class="dropdown-price">EUR '+formatPrice(p.price)+'</div></div>';
     opt.querySelector(".dropdown-title").textContent=p.title;
     opt.addEventListener("click",e=>{selectProduct(idx);dropdown.classList.remove("open");e.stopPropagation();});
     optionsContainer.appendChild(opt);
@@ -474,20 +501,52 @@ function selectProduct(index){
   if(!filteredProducts[index])return;
   currentProductIndex=index;
   const p=filteredProducts[index];
+  selectedColorIndex=getColorVariants(p).length?0:-1;
   currentSide="front";
   designState=createEmptyDesignState();
   selectedItemId=null;
-  pImg.src=p.imgFront;
+  pImg.src=getSideImage(p,"front");
   pImg.onload=()=>renderDesignItems();
   cTitle.innerHTML="<strong>"+p.title+"</strong>";
   cDesc.textContent=(categoryText(p)?categoryText(p)+"  -  ":"")+(p.desc||"");
   cPrice.textContent="EUR "+formatPrice(p.price);
-  dropdownTrigger.innerHTML='<span style="display:flex;align-items:center;gap:8px;min-width:0;"><img src="'+p.imgFront+'" style="width:26px;height:26px;object-fit:contain;border-radius:4px;background:#f8fafc;"> <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span></span>';
+  dropdownTrigger.innerHTML='<span style="display:flex;align-items:center;gap:8px;min-width:0;"><img src="'+getProductPreviewImage(p)+'" style="width:26px;height:26px;object-fit:contain;border-radius:4px;background:#f8fafc;"> <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span></span>';
   dropdownTrigger.querySelector("span span").textContent=p.title;
   document.querySelectorAll(".dropdown-option").forEach((opt,idx)=>opt.classList.toggle("active",idx===index));
+  renderColorChoices(p);
   buildSizeGrid(p);
   setSide("front");
   updateTotal();
+}
+
+function renderColorChoices(product){
+  const box=document.getElementById("color-choice-box");
+  const list=document.getElementById("color-choice-list");
+  if(!box||!list)return;
+  const variants=getColorVariants(product);
+  list.innerHTML="";
+  if(!variants.length){
+    box.classList.add("hidden");
+    return;
+  }
+  box.classList.remove("hidden");
+  variants.forEach((variant,index)=>{
+    const btn=document.createElement("button");
+    btn.type="button";
+    btn.className="color-choice-btn"+(index===selectedColorIndex?" active":"");
+    btn.innerHTML='<span class="color-dot"></span><span></span>';
+    btn.querySelector(".color-dot").style.background=variant.hex||"#111111";
+    btn.querySelector("span:last-child").textContent=variant.name||("Farbe "+(index+1));
+    btn.addEventListener("click",()=>{
+      selectedColorIndex=index;
+      currentSide="front";
+      designState=createEmptyDesignState();
+      selectedItemId=null;
+      renderColorChoices(product);
+      setSide("front");
+    });
+    list.appendChild(btn);
+  });
 }
 
 function buildSizeGrid(p){
@@ -785,8 +844,10 @@ function addCurrentProductToRequest(){
   if(!quantities.length&&!confirm("Keine Menge ausgewaehlt. Trotzdem hinzufuegen?"))return;
 
   const clonedDesigns=cloneState(designState);
+  const selectedColor=getSelectedColorVariant(prod);
   requestItems.push({
     title:prod.title,
+    color:selectedColor?.name||"",
     price:prod.price,
     printCostPerPosition:prod.printCostPerPosition,
     printRule:prod.printRule||"standard",
@@ -796,7 +857,7 @@ function addCurrentProductToRequest(){
     subcategory:prod.subcategory||"",
     shopifyVariantIds:prod.shopifyVariantIds||{},
     quantities,
-    productImages:{front:prod.imgFront,back:prod.imgBack,leftSleeve:prod.imgLeftSleeve,rightSleeve:prod.imgRightSleeve},
+    productImages:getCurrentProductImages(prod),
     designs:clonedDesigns,
     designTexts:designTextSummary(clonedDesigns),
     originalFiles:originalFilesFromDesigns(clonedDesigns,prod.title)
@@ -850,7 +911,7 @@ function renderRequestList(){
     const info=document.createElement("div");
     info.innerHTML="<strong></strong><br><span></span>";
     info.querySelector("strong").textContent=item.title;
-    info.querySelector("span").textContent=qty+"  -  "+designSummary(item.designs);
+    info.querySelector("span").textContent=(item.color?("Farbe: "+item.color+"  -  "):"")+qty+"  -  "+designSummary(item.designs);
     const btn=document.createElement("button");
     btn.className="remove-request";
     btn.type="button";
@@ -874,6 +935,7 @@ function buildMailText(){
     const totalQty=item.quantities.reduce((s,q)=>s+q.qty,0);
     const totalPrice=totalQty*(Number(String(item.price).replace(",","."))||0);
     productText+=(index+1)+". "+item.title+"\\n"+
+      "- Farbe: "+(item.color||"-")+"\\n"+
       "- Kategorie: "+categoryText(item)+"\\n"+
       "- Basispreis: EUR "+item.price+"\\n"+
       "- Menge: "+qtyText+"\\n"+
@@ -1025,6 +1087,7 @@ function buildShopifyCartPayload(clientEmail,clientPhone,notes,requestId){
           "Personalisierung":"Protex Konfigurator",
           "Protex Anfrage":requestId?String(requestId):"gespeichert",
           "Produkt":item.title||"",
+          "Farbe":item.color||"",
           "Groesse":size,
           "Design":designSummary(item.designs),
           "Druckpositionen":String(countPrintPositions(item)),
@@ -1098,6 +1161,7 @@ async function sendOrder(){
     const pricing=calculatePricing(requestItems);
    const cleanItems = requestItems.map(item => ({
   title: item.title,
+  color: item.color || "",
   price: item.price,
   desc: item.desc || "",
   category: item.category || "",

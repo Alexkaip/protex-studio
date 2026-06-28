@@ -1,4 +1,4 @@
-let supabaseClient,session=null,products=[],categories=[],subcategories=[],requests=[],quantityDiscountTiers=[],couponCodes=[],visitorStats={total:0,today:0,last7:0},printCostPerPosition=5;
+let supabaseClient,session=null,products=[],categories=[],subcategories=[],requests=[],quantityDiscountTiers=[],couponCodes=[],visitorStats={total:0,today:0,last7:0},printCostPerPosition=5,productColorVariants=[];
 const SIDES=["front","back","leftSleeve","rightSleeve"];
 const SIDE_LABELS={front:"Vorderseite",back:"Rueckseite",leftSleeve:"Linker Aermel",rightSleeve:"Rechter Aermel"};
 function sideLabel(side){return SIDE_LABELS[side]||side;}
@@ -28,6 +28,7 @@ function bindEvents(){
   document.getElementById("reset-form-btn").addEventListener("click",closeProductModal);
   document.getElementById("open-product-modal-btn").addEventListener("click",openNewProductModal);
   document.getElementById("close-product-modal-btn").addEventListener("click",closeProductModal);
+  document.getElementById("add-color-variant-btn").addEventListener("click",addColorVariant);
   const productModal=document.getElementById("product-form-modal");
   if(productModal)productModal.addEventListener("click",e=>{if(e.target===productModal)closeProductModal();});
   document.getElementById("reload-btn").addEventListener("click",loadAll);
@@ -616,7 +617,8 @@ function createProductAdminRow(p){
   const printInfo=p.printCostPerPosition!==""&&p.printCostPerPosition!=null ? " - Druck EUR "+formatPrice(p.printCostPerPosition) : "";
   const profitInfo=profitTextForProduct(p);
   const sevdeskInfo=p.sevdeskArticleNumber ? " - ArtNr "+p.sevdeskArticleNumber : "";
-  row.querySelector(".sub").textContent="EUR "+formatPrice(p.price)+" - "+productTypeLabel(p.productType)+" - "+(p.active?"aktiv":"inaktiv")+" - "+(p.personalizable!==false?"Konfigurator":"nur Shop")+profitInfo+printInfo+sevdeskInfo;
+  const colorInfo=(p.colorVariants||[]).length ? " - "+p.colorVariants.length+" Farbe(n)" : "";
+  row.querySelector(".sub").textContent="EUR "+formatPrice(p.price)+" - "+productTypeLabel(p.productType)+" - "+(p.active?"aktiv":"inaktiv")+" - "+(p.personalizable!==false?"Konfigurator":"nur Shop")+colorInfo+profitInfo+printInfo+sevdeskInfo;
   const actions=row.querySelector(".product-actions");
   actions.appendChild(actionBtn("Bearbeiten","edit-btn",()=>editProduct(p)));
   actions.appendChild(actionBtn("Duplizieren","copy-btn",()=>duplicateProduct(p)));
@@ -737,6 +739,84 @@ function setValue(id,value){
   if(el)el.value=value??"";
 }
 
+function emptyColorVariant(){
+  return {name:"",hex:"#111111",images:{front:"",back:"",leftSleeve:"",rightSleeve:""}};
+}
+
+function normalizeColorVariants(rows){
+  return (Array.isArray(rows)?rows:[]).map(v=>({
+    name:String(v.name||"").trim(),
+    hex:String(v.hex||v.color||"#111111").trim()||"#111111",
+    images:{
+      front:v.images?.front||v.imgFront||"",
+      back:v.images?.back||v.imgBack||"",
+      leftSleeve:v.images?.leftSleeve||v.imgLeftSleeve||"",
+      rightSleeve:v.images?.rightSleeve||v.imgRightSleeve||""
+    }
+  })).filter(v=>v.name||v.images.front||v.images.back||v.images.leftSleeve||v.images.rightSleeve);
+}
+
+function renderColorVariants(){
+  const list=document.getElementById("color-variant-list");
+  if(!list)return;
+  list.innerHTML="";
+  if(!productColorVariants.length){
+    list.innerHTML='<div class="notice">Noch keine Farbvarianten angelegt. Ohne Farbvariante nutzt das Produkt die normalen Bilder.</div>';
+    return;
+  }
+  productColorVariants.forEach((variant,index)=>{
+    const box=document.createElement("div");
+    box.className="color-variant-card";
+    box.dataset.index=String(index);
+    box.innerHTML='<div class="color-variant-head"><strong>Farbe '+(index+1)+'</strong><button class="mini-delete-btn" type="button">Entfernen</button></div>'+
+      '<div class="color-variant-grid">'+
+      '<div class="form-group"><label>Farbname</label><input type="text" class="cv-name" placeholder="z.B. Schwarz"></div>'+
+      '<div class="form-group"><label>Farbpunkt</label><input type="color" class="cv-hex"></div>'+
+      '<div class="form-group"><label>Vorderseite</label><input type="file" class="cv-front" accept="image/*"><div class="sub cv-front-current"></div></div>'+
+      '<div class="form-group"><label>Rueckseite</label><input type="file" class="cv-back" accept="image/*"><div class="sub cv-back-current"></div></div>'+
+      '<div class="form-group"><label>Linker Aermel</label><input type="file" class="cv-left" accept="image/*"><div class="sub cv-left-current"></div></div>'+
+      '<div class="form-group"><label>Rechter Aermel</label><input type="file" class="cv-right" accept="image/*"><div class="sub cv-right-current"></div></div>'+
+      '</div>';
+    box.querySelector(".cv-name").value=variant.name||"";
+    box.querySelector(".cv-hex").value=variant.hex||"#111111";
+    box.querySelector(".cv-front-current").textContent=variant.images?.front?"Bild gespeichert":"";
+    box.querySelector(".cv-back-current").textContent=variant.images?.back?"Bild gespeichert":"";
+    box.querySelector(".cv-left-current").textContent=variant.images?.leftSleeve?"Bild gespeichert":"";
+    box.querySelector(".cv-right-current").textContent=variant.images?.rightSleeve?"Bild gespeichert":"";
+    box.querySelector(".mini-delete-btn").addEventListener("click",()=>{productColorVariants.splice(index,1);renderColorVariants();});
+    list.appendChild(box);
+  });
+}
+
+function addColorVariant(){
+  productColorVariants.push(emptyColorVariant());
+  renderColorVariants();
+}
+
+async function collectColorVariantsForSave(){
+  const cards=[...document.querySelectorAll(".color-variant-card")];
+  const rows=[];
+  for(const card of cards){
+    const index=Number(card.dataset.index);
+    const old=productColorVariants[index]||emptyColorVariant();
+    const variant={
+      name:card.querySelector(".cv-name")?.value.trim()||"",
+      hex:card.querySelector(".cv-hex")?.value||"#111111",
+      images:{...(old.images||{})}
+    };
+    const front=card.querySelector(".cv-front")?.files[0];
+    const back=card.querySelector(".cv-back")?.files[0];
+    const left=card.querySelector(".cv-left")?.files[0];
+    const right=card.querySelector(".cv-right")?.files[0];
+    if(front)variant.images.front=await uploadFile(front,"color-front");
+    if(back)variant.images.back=await uploadFile(back,"color-back");
+    if(left)variant.images.leftSleeve=await uploadFile(left,"color-left");
+    if(right)variant.images.rightSleeve=await uploadFile(right,"color-right");
+    if(variant.name||variant.images.front||variant.images.back||variant.images.leftSleeve||variant.images.rightSleeve)rows.push(variant);
+  }
+  return normalizeColorVariants(rows);
+}
+
 function openProductModal(){
   const modal=document.getElementById("product-form-modal");
   if(!modal)return;
@@ -788,6 +868,8 @@ function editProduct(p){
   document.getElementById("p-sizes").value=(p.sizes||[]).join(",");
   const shopifyVariants=document.getElementById("p-shopify-variants");
   if(shopifyVariants)shopifyVariants.value=formatShopifyVariantIds(p.shopifyVariantIds);
+  productColorVariants=normalizeColorVariants(p.colorVariants);
+  renderColorVariants();
   document.getElementById("p-active").checked=p.active;
   document.getElementById("p-personalizable").checked=p.personalizable!==false;
   openProductModal();
@@ -811,6 +893,8 @@ function resetForm(){
   document.getElementById("p-back").value="";
   document.getElementById("p-left-sleeve").value="";
   document.getElementById("p-right-sleeve").value="";
+  productColorVariants=[];
+  renderColorVariants();
   document.getElementById("p-active").checked=true;
   document.getElementById("p-personalizable").checked=true;
 }
@@ -837,7 +921,8 @@ async function saveProduct(){
     if(leftFile)imgLeftSleeve=await uploadFile(leftFile,"left-sleeve");
     if(rightFile)imgRightSleeve=await uploadFile(rightFile,"right-sleeve");
     if(!imgFront)throw new Error("Bitte ein Vorderseitenbild hochladen.");
-    const product={title:document.getElementById("p-title").value.trim(),productType:(document.getElementById("p-product-type")?.value||"configurator"),printRule:(document.getElementById("p-print-rule")?.value||"standard"),category:document.getElementById("p-category").value.trim(),subcategory:(document.getElementById("p-subcategory")?.value||"").trim(),desc:document.getElementById("p-desc").value.trim(),price:document.getElementById("p-price").value.trim(),sevdeskArticleNumber:getValue("p-sevdesk-article-number"),sevdeskUnit:getValue("p-sevdesk-unit")||"Stk",sevdeskStock:getValue("p-sevdesk-stock")||"0,00",sevdeskStockEnabled:document.getElementById("p-sevdesk-stock-enabled")?.checked===true,sevdeskTaxRate:getValue("p-sevdesk-tax-rate")||"20,00",sevdeskPurchasePrice:getValue("p-sevdesk-purchase-price"),sevdeskCategory:getValue("p-sevdesk-category")||"Standard",printCostPerPosition:(document.getElementById("p-print-cost")?.value||"").trim(),sizes:splitList(document.getElementById("p-sizes").value),shopifyVariantIds:parseShopifyVariantIds(document.getElementById("p-shopify-variants")?.value||""),imgFront,imgBack,imgLeftSleeve,imgRightSleeve,active:document.getElementById("p-active").checked,personalizable:document.getElementById("p-personalizable").checked};
+    const colorVariants=await collectColorVariantsForSave();
+    const product={title:document.getElementById("p-title").value.trim(),productType:(document.getElementById("p-product-type")?.value||"configurator"),printRule:(document.getElementById("p-print-rule")?.value||"standard"),category:document.getElementById("p-category").value.trim(),subcategory:(document.getElementById("p-subcategory")?.value||"").trim(),desc:document.getElementById("p-desc").value.trim(),price:document.getElementById("p-price").value.trim(),sevdeskArticleNumber:getValue("p-sevdesk-article-number"),sevdeskUnit:getValue("p-sevdesk-unit")||"Stk",sevdeskStock:getValue("p-sevdesk-stock")||"0,00",sevdeskStockEnabled:document.getElementById("p-sevdesk-stock-enabled")?.checked===true,sevdeskTaxRate:getValue("p-sevdesk-tax-rate")||"20,00",sevdeskPurchasePrice:getValue("p-sevdesk-purchase-price"),sevdeskCategory:getValue("p-sevdesk-category")||"Standard",printCostPerPosition:(document.getElementById("p-print-cost")?.value||"").trim(),sizes:splitList(document.getElementById("p-sizes").value),shopifyVariantIds:parseShopifyVariantIds(document.getElementById("p-shopify-variants")?.value||""),colorVariants,imgFront,imgBack,imgLeftSleeve,imgRightSleeve,active:document.getElementById("p-active").checked,personalizable:document.getElementById("p-personalizable").checked};
     if(!product.title)throw new Error("Produktname fehlt.");
     ensureUniqueArticleNumber(product.sevdeskArticleNumber,id);
     if(product.category && !categories.includes(product.category)){
