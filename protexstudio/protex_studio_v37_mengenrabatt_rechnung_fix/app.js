@@ -588,8 +588,8 @@ function buildShopSizeGrid(p){
   const grid=document.getElementById("shop-size-grid");
   if(!grid)return;
   grid.innerHTML="";
-  const hasVariantIds=p.shopifyVariantIds&&typeof p.shopifyVariantIds==="object"&&Object.keys(p.shopifyVariantIds).length>0;
-  const sizes=hasVariantIds&&(p.sizes?.length)?p.sizes:[""];
+  const hasSizeVariantIds=p.shopifyVariantIds&&typeof p.shopifyVariantIds==="object"&&(p.sizes||[]).some(size=>findShopifyVariantId(p.shopifyVariantIds,size));
+  const sizes=hasSizeVariantIds&&(p.sizes?.length)?p.sizes:[""];
   sizes.forEach(size=>{
     const row=document.createElement("div");
     row.className="size-row";
@@ -636,13 +636,13 @@ function buildDirectShopifyPayload(product,quantities){
   const items=[];
   const missing=[];
   const handle=slugify(product.title||"");
-  const hasVariantIds=product.shopifyVariantIds&&typeof product.shopifyVariantIds==="object"&&Object.keys(product.shopifyVariantIds).length>0;
+  const hasSizeVariantIds=product.shopifyVariantIds&&typeof product.shopifyVariantIds==="object"&&(product.sizes||[]).some(size=>findShopifyVariantId(product.shopifyVariantIds,size));
   const selectedColor=getSelectedShopColorVariant(product);
   const selectedColorName=selectedColor?.name||"";
   quantities.forEach(q=>{
-    const size=hasVariantIds?(q.size||""):"";
+    const size=hasSizeVariantIds?(q.size||""):"";
     const variantOption=selectedColorName||size;
-    const variantId=findShopifyVariantId(product.shopifyVariantIds,size);
+    const variantId=findShopifyVariantId(product.shopifyVariantIds,variantOption)||findShopifyVariantId(product.shopifyVariantIds,size);
     if(!variantId && !handle){
       missing.push((product.title||"Produkt")+" / "+(size||"Größe"));
       return;
@@ -655,7 +655,7 @@ function buildDirectShopifyPayload(product,quantities){
       color:selectedColorName,
       variantOption:variantOption,
       sku:variantOption?handle+"-"+slugify(variantOption):handle,
-      allowFirstVariant:!hasVariantIds && !variantOption,
+      allowFirstVariant:!hasSizeVariantIds && !variantOption,
       shopOnly:true,
       quantity:q.qty,
       properties:{

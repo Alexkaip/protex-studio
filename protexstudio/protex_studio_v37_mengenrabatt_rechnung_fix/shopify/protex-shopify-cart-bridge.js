@@ -241,7 +241,9 @@ window.addEventListener("message", async (event) => {
     if (!items.length) {
       const hasProductMap = Array.isArray(window.PROTEX_PRODUCT_MAP) && window.PROTEX_PRODUCT_MAP.length > 0;
       const msg = "Shopify konnte keine passende Variante finden: " + missing.join(", ") +
-        (hasProductMap ? "" : " Bitte in der Protex Konfigurator Section eine Produkt-Kollektion fuer die Warenkorb-Suche auswaehlen.");
+        (hasProductMap
+          ? " Bitte pruefen: Produkt ist in der gewaehlten Shopify-Kollektion und die Variante existiert dort."
+          : " Bitte in der Protex Konfigurator Section eine Produkt-Kollektion fuer die Warenkorb-Suche auswaehlen oder im Admin die Shopify Variant IDs eintragen.");
       notifyProtexFrame(event.source, "error", msg);
       alert(msg);
       return;
