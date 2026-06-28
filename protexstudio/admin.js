@@ -36,10 +36,14 @@ function bindEvents(){
   document.getElementById("csv-export-btn").addEventListener("click",exportCsv);
   const shopifyExportBtn=document.getElementById("shopify-export-btn");
   if(shopifyExportBtn)shopifyExportBtn.addEventListener("click",exportShopifyCsv);
+  const sevdeskProductExportBtn=document.getElementById("sevdesk-product-export-btn");
+  if(sevdeskProductExportBtn)sevdeskProductExportBtn.addEventListener("click",exportSevdeskProductCsv);
   document.getElementById("csv-import").addEventListener("change",importCsv);
   document.getElementById("add-category-btn").addEventListener("click",addCategory);
   const reloadRequests=document.getElementById("reload-requests-btn");
   if(reloadRequests)reloadRequests.addEventListener("click",loadRequests);
+  const sevdeskExportBtn=document.getElementById("sevdesk-export-btn");
+  if(sevdeskExportBtn)sevdeskExportBtn.addEventListener("click",exportSevdeskCsv);
   const addDiscountRow=document.getElementById("add-discount-row-btn");
   if(addDiscountRow)addDiscountRow.addEventListener("click",()=>{quantityDiscountTiers.push({min_qty:"",discount_percent:""});renderDiscountSettings();});
   const saveDiscounts=document.getElementById("save-discounts-btn");
@@ -561,20 +565,57 @@ async function removeSubcategory(category,name){
 function renderProducts(){
   const list=document.getElementById("product-list"),q=document.getElementById("search").value.toLowerCase();
   list.innerHTML="";
-  const filtered=products.filter(p=>!q||[p.title,p.desc,p.category,p.subcategory].join(" ").toLowerCase().includes(q));
+  const filtered=products.filter(p=>!q||[p.title,p.desc,p.category,p.subcategory,productTypeLabel(p.productType)].join(" ").toLowerCase().includes(q));
   if(!filtered.length){list.innerHTML='<div class="notice">Keine Produkte gefunden.</div>';return}
-  filtered.forEach(p=>{
-    const row=document.createElement("div");
-    row.className="product-admin-item";
-    row.innerHTML='<img src="'+(p.imgFront||"")+'" alt=""><div><strong></strong><div class="sub"></div><div class="product-actions"></div></div>';
-    row.querySelector("strong").textContent=p.title;
-    row.querySelector(".sub").textContent="â‚¬ "+formatPrice(p.price)+" Â· "+categoryText(p)+" Â· "+(p.active?"aktiv":"inaktiv")+" · "+(p.personalizable!==false?"Konfigurator":"nur Shop");
-    const actions=row.querySelector(".product-actions");
-    actions.appendChild(actionBtn("Bearbeiten","edit-btn",()=>editProduct(p)));
-    actions.appendChild(actionBtn("Duplizieren","copy-btn",()=>duplicateProduct(p)));
-    actions.appendChild(actionBtn("LÃ¶schen","delete-btn",()=>deleteProduct(p.id)));
-    list.appendChild(row);
+
+  const categoryNames=[...new Set([...categories,...filtered.map(p=>p.category||"Ohne Kategorie")])]
+    .filter(Boolean)
+    .sort((a,b)=>a.localeCompare(b,"de"));
+
+  categoryNames.forEach(category=>{
+    const catProducts=filtered.filter(p=>(p.category||"Ohne Kategorie")===category);
+    if(!catProducts.length)return;
+    const categoryBox=document.createElement("details");
+    categoryBox.className="product-category-group";
+    categoryBox.open=true;
+    const catSummary=document.createElement("summary");
+    catSummary.innerHTML='<span></span><strong></strong>';
+    catSummary.querySelector("span").textContent=category;
+    catSummary.querySelector("strong").textContent=catProducts.length+" Artikel";
+    categoryBox.appendChild(catSummary);
+
+    const subNames=[...new Set(catProducts.map(p=>p.subcategory||"Ohne Unterkategorie"))]
+      .sort((a,b)=>a.localeCompare(b,"de"));
+    subNames.forEach(sub=>{
+      const subProducts=catProducts.filter(p=>(p.subcategory||"Ohne Unterkategorie")===sub);
+      const subBox=document.createElement("div");
+      subBox.className="product-subcategory-group";
+      const subHead=document.createElement("div");
+      subHead.className="product-subcategory-head";
+      subHead.innerHTML='<span></span><strong></strong>';
+      subHead.querySelector("span").textContent=sub;
+      subHead.querySelector("strong").textContent=subProducts.length+" Artikel";
+      subBox.appendChild(subHead);
+      subProducts.forEach(p=>subBox.appendChild(createProductAdminRow(p)));
+      categoryBox.appendChild(subBox);
+    });
+    list.appendChild(categoryBox);
   });
+}
+
+function createProductAdminRow(p){
+  const row=document.createElement("div");
+  row.className="product-admin-item";
+  row.innerHTML='<img src="'+(p.imgFront||"")+'" alt=""><div><strong></strong><div class="sub"></div><div class="product-actions"></div></div>';
+  row.querySelector("strong").textContent=p.title;
+  const printInfo=p.printCostPerPosition!==""&&p.printCostPerPosition!=null ? " · Druck EUR "+formatPrice(p.printCostPerPosition) : "";
+  const sevdeskInfo=p.sevdeskArticleNumber ? " - ArtNr "+p.sevdeskArticleNumber : "";
+  row.querySelector(".sub").textContent="EUR "+formatPrice(p.price)+" · "+productTypeLabel(p.productType)+" · "+(p.active?"aktiv":"inaktiv")+" · "+(p.personalizable!==false?"Konfigurator":"nur Shop")+printInfo+sevdeskInfo;
+  const actions=row.querySelector(".product-actions");
+  actions.appendChild(actionBtn("Bearbeiten","edit-btn",()=>editProduct(p)));
+  actions.appendChild(actionBtn("Duplizieren","copy-btn",()=>duplicateProduct(p)));
+  actions.appendChild(actionBtn("Löschen","delete-btn",()=>deleteProduct(p.id)));
+  return row;
 }
 
 function actionBtn(text,cls,fn){
@@ -583,6 +624,31 @@ function actionBtn(text,cls,fn){
   return b;
 }
 
+function normalizeArticleNumber(value){
+  return String(value||"").trim().toLowerCase();
+}
+
+function findDuplicateArticleNumber(articleNumber,currentId){
+  const normalized=normalizeArticleNumber(articleNumber);
+  if(!normalized)return null;
+  return products.find(p=>normalizeArticleNumber(p.sevdeskArticleNumber)===normalized && String(p.id)!==String(currentId||""));
+}
+
+function ensureUniqueArticleNumber(articleNumber,currentId){
+  const duplicate=findDuplicateArticleNumber(articleNumber,currentId);
+  if(duplicate)throw new Error("Artikelnummer "+articleNumber+" ist bereits bei \""+(duplicate.title||"anderem Produkt")+"\" vergeben.");
+}
+
+function duplicateArticleNumbersInList(list){
+  const seen=new Map(),duplicates=[];
+  list.forEach(p=>{
+    const number=normalizeArticleNumber(p.sevdeskArticleNumber);
+    if(!number)return;
+    if(seen.has(number))duplicates.push({number:p.sevdeskArticleNumber,first:seen.get(number),second:p});
+    else seen.set(number,p);
+  });
+  return duplicates;
+}
 function productTypeLabel(type){
   const map={configurator:"Konfigurator",shop_only:"Nur Shop",set:"Set",print_fee:"Druckkosten/Zubehoer"};
   return map[type]||"Konfigurator";
@@ -610,6 +676,14 @@ function parseShopifyVariantIds(value){
   });
   return ids;
 }
+function getValue(id){
+  const el=document.getElementById(id);
+  return el?String(el.value||"").trim():"";
+}
+function setValue(id,value){
+  const el=document.getElementById(id);
+  if(el)el.value=value??"";
+}
 function editProduct(p){
   document.getElementById("form-title").textContent="Produkt bearbeiten";
   document.getElementById("edit-id").value=p.id;
@@ -622,6 +696,14 @@ function editProduct(p){
   if(subcategoryInput)subcategoryInput.value=p.subcategory||"";
   document.getElementById("p-desc").value=p.desc;
   document.getElementById("p-price").value=p.price;
+  setValue("p-sevdesk-article-number",p.sevdeskArticleNumber||"");
+  setValue("p-sevdesk-unit",p.sevdeskUnit||"Stk");
+  setValue("p-sevdesk-stock",p.sevdeskStock??"0,00");
+  setValue("p-sevdesk-tax-rate",p.sevdeskTaxRate??"20,00");
+  setValue("p-sevdesk-purchase-price",p.sevdeskPurchasePrice||"");
+  setValue("p-sevdesk-category",p.sevdeskCategory||"Standard");
+  const sevdeskStockEnabled=document.getElementById("p-sevdesk-stock-enabled");
+  if(sevdeskStockEnabled)sevdeskStockEnabled.checked=p.sevdeskStockEnabled===true;
   const printCostInput=document.getElementById("p-print-cost");
   if(printCostInput)printCostInput.value=p.printCostPerPosition ?? "";
   const printRuleInput=document.getElementById("p-print-rule");
@@ -637,7 +719,12 @@ function editProduct(p){
 function resetForm(){
   document.getElementById("form-title").textContent="Produkt anlegen";
   document.getElementById("edit-id").value="";
-  ["p-title","p-subcategory","p-desc","p-price","p-print-cost","p-shopify-variants"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  ["p-title","p-subcategory","p-desc","p-price","p-print-cost","p-shopify-variants","p-sevdesk-article-number","p-sevdesk-purchase-price"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  setValue("p-sevdesk-unit","Stk");
+  setValue("p-sevdesk-stock","0,00");
+  setValue("p-sevdesk-tax-rate","20,00");
+  setValue("p-sevdesk-category","Standard");
+  const sevdeskStockEnabled=document.getElementById("p-sevdesk-stock-enabled");if(sevdeskStockEnabled)sevdeskStockEnabled.checked=false;
   document.getElementById("p-category").value="";
   const productTypeInput=document.getElementById("p-product-type");if(productTypeInput)productTypeInput.value="configurator";
   const printRuleInput=document.getElementById("p-print-rule");if(printRuleInput)printRuleInput.value="standard";
@@ -672,8 +759,9 @@ async function saveProduct(){
     if(leftFile)imgLeftSleeve=await uploadFile(leftFile,"left-sleeve");
     if(rightFile)imgRightSleeve=await uploadFile(rightFile,"right-sleeve");
     if(!imgFront)throw new Error("Bitte ein Vorderseitenbild hochladen.");
-    const product={title:document.getElementById("p-title").value.trim(),productType:(document.getElementById("p-product-type")?.value||"configurator"),printRule:(document.getElementById("p-print-rule")?.value||"standard"),category:document.getElementById("p-category").value.trim(),subcategory:(document.getElementById("p-subcategory")?.value||"").trim(),desc:document.getElementById("p-desc").value.trim(),price:document.getElementById("p-price").value.trim(),printCostPerPosition:(document.getElementById("p-print-cost")?.value||"").trim(),sizes:splitList(document.getElementById("p-sizes").value),shopifyVariantIds:parseShopifyVariantIds(document.getElementById("p-shopify-variants")?.value||""),imgFront,imgBack,imgLeftSleeve,imgRightSleeve,active:document.getElementById("p-active").checked,personalizable:document.getElementById("p-personalizable").checked};
+    const product={title:document.getElementById("p-title").value.trim(),productType:(document.getElementById("p-product-type")?.value||"configurator"),printRule:(document.getElementById("p-print-rule")?.value||"standard"),category:document.getElementById("p-category").value.trim(),subcategory:(document.getElementById("p-subcategory")?.value||"").trim(),desc:document.getElementById("p-desc").value.trim(),price:document.getElementById("p-price").value.trim(),sevdeskArticleNumber:getValue("p-sevdesk-article-number"),sevdeskUnit:getValue("p-sevdesk-unit")||"Stk",sevdeskStock:getValue("p-sevdesk-stock")||"0,00",sevdeskStockEnabled:document.getElementById("p-sevdesk-stock-enabled")?.checked===true,sevdeskTaxRate:getValue("p-sevdesk-tax-rate")||"20,00",sevdeskPurchasePrice:getValue("p-sevdesk-purchase-price"),sevdeskCategory:getValue("p-sevdesk-category")||"Standard",printCostPerPosition:(document.getElementById("p-print-cost")?.value||"").trim(),sizes:splitList(document.getElementById("p-sizes").value),shopifyVariantIds:parseShopifyVariantIds(document.getElementById("p-shopify-variants")?.value||""),imgFront,imgBack,imgLeftSleeve,imgRightSleeve,active:document.getElementById("p-active").checked,personalizable:document.getElementById("p-personalizable").checked};
     if(!product.title)throw new Error("Produktname fehlt.");
+    ensureUniqueArticleNumber(product.sevdeskArticleNumber,id);
     if(product.category && !categories.includes(product.category)){
       await supabaseClient.from("categories").upsert({name:product.category},{onConflict:"name"});
     }
@@ -709,7 +797,7 @@ function downloadTemplate(){
 }
 
 function exportCsv(){
-  const rows=[["Produktname","Produkttyp","Kategorie","Unterkategorie","Beschreibung","Preis","DruckkostenProDruck","DruckRegel","Größen","ShopifyVariantIDs","Aktiv","Personalisierbar","BildVorderseite","BildRückseite","BildLinkerÄrmel","BildRechterÄrmel"]];
+  const rows=[["Produktname","Produkttyp","Kategorie","Unterkategorie","Beschreibung","Preis","sevDeskArtikelnummer","sevDeskEinheit","sevDeskBestand","sevDeskBestandAktiv","sevDeskUmsatzsteuer","sevDeskEinkaufspreis","sevDeskKategorie","DruckkostenProDruck","DruckRegel","Größen","ShopifyVariantIDs","Aktiv","Personalisierbar","BildVorderseite","BildRückseite","BildLinkerÄrmel","BildRechterÄrmel"]];
   products.forEach(p=>rows.push([
     p.title||"",
     p.productType||"configurator",
@@ -717,6 +805,13 @@ function exportCsv(){
     p.subcategory||"",
     p.desc||"",
     p.price||"",
+    p.sevdeskArticleNumber||"",
+    p.sevdeskUnit||"Stk",
+    p.sevdeskStock??"0,00",
+    p.sevdeskStockEnabled===true?"true":"false",
+    p.sevdeskTaxRate??"20,00",
+    p.sevdeskPurchasePrice||"",
+    p.sevdeskCategory||"Standard",
     p.printCostPerPosition ?? "",
     p.printRule||"standard",
     (p.sizes||[]).join("|"),
@@ -732,6 +827,38 @@ function exportCsv(){
   downloadText(csv,"produkte-export.csv","text/csv;charset=utf-8");
 }
 
+function exportSevdeskProductCsv(){
+  const activeProducts=products.filter(p=>p.active!==false);
+  if(!activeProducts.length){alert("Keine aktiven Produkte fuer sevDesk gefunden.");return;}
+  const duplicates=duplicateArticleNumbersInList(activeProducts);
+  if(duplicates.length){alert("Doppelte sevDesk Artikelnummer gefunden: "+duplicates[0].number+" bei \""+(duplicates[0].first.title||"")+"\" und \""+(duplicates[0].second.title||"")+"\". Bitte zuerst korrigieren.");return;}
+  const rows=[["Artikelnumer","Name","Einheit","Bestand","Bestand aktiviert","Umsatzsteuer","Einkaufspreis","Verkaufspreis","Kategorie","Beschreibung"]];
+  activeProducts.forEach(p=>{
+    rows.push([
+      p.sevdeskArticleNumber||String(p.id||slugify(p.title||"artikel")),
+      p.title||"",
+      p.sevdeskUnit||"Stk",
+      formatSevdeskDecimal(p.sevdeskStock,"0,00"),
+      p.sevdeskStockEnabled===true?"1":"0",
+      formatSevdeskDecimal(p.sevdeskTaxRate,"20,00"),
+      formatSevdeskDecimal(p.sevdeskPurchasePrice,"0,00"),
+      formatSevdeskDecimal(p.price,"0,00"),
+      p.sevdeskCategory||"Standard",
+      p.desc||""
+    ]);
+  });
+  const csv="\ufeff"+rows.map(row=>row.map(csvEscape).join(";")).join("\r\n");
+  downloadText(csv,"sevdesk-artikel-export.csv","text/csv;charset=utf-8");
+}
+
+function formatSevdeskDecimal(value,fallback){
+  const raw=String(value??"").trim();
+  if(!raw)return fallback||"";
+  const normalized=raw.includes(",") ? raw.replace(/\./g,"").replace(",",".") : raw;
+  const n=Number(normalized);
+  if(!Number.isFinite(n))return fallback||"";
+  return n.toFixed(2).replace(".",",");
+}
 function exportShopifyCsv(){
   const rows=[[
     "Handle","Title","Body (HTML)","Vendor","Product Category","Type","Tags","Published",
@@ -868,11 +995,13 @@ async function importCsv(e){
   const shopifyOffset=hasShopifyVariantIds?1:0;
   const personalizableOffset=hasPersonalizable?1:0;
   const rows=[];
-  const existingRes=await supabaseClient.from("products").select("name,category,subcategory");
+  const existingRes=await supabaseClient.from("products").select("name,category,subcategory,sevdesk_article_number");
   if(existingRes.error){alert(existingRes.error.message);e.target.value="";return}
   const keyFor=(name,category,subcategory)=>String(name||"").trim().toLowerCase()+"|"+String(category||"").trim().toLowerCase()+"|"+String(subcategory||"").trim().toLowerCase();
   const existingKeys=new Set((existingRes.data||[]).map(r=>keyFor(r.name,r.category,r.subcategory)));
+  const existingArticleNumbers=new Map((existingRes.data||[]).map(r=>[normalizeArticleNumber(r.sevdesk_article_number),r.name]).filter(([number])=>number));
   const importKeys=new Set();
+  const importArticleNumbers=new Map();
   let skipped=0;
   for(let i=1;i<parsed.length;i++){
     const c=parsed[i];
@@ -899,6 +1028,13 @@ async function importCsv(e){
       subcategory:subcategory,
       desc:descRaw,
       price:pick(c,headers,["Preis"],3+offset),
+      sevdeskArticleNumber:pick(c,headers,["sevDeskArtikelnummer","sevDesk Artikelnummer","Artikelnumer","Artikelnummer"],-1),
+      sevdeskUnit:pick(c,headers,["sevDeskEinheit","Einheit"],-1)||"Stk",
+      sevdeskStock:pick(c,headers,["sevDeskBestand","Bestand"],-1)||"0,00",
+      sevdeskStockEnabled:["true","1","ja","yes"].includes(String(pick(c,headers,["sevDeskBestandAktiv","Bestand aktiviert"],-1)).toLowerCase()),
+      sevdeskTaxRate:pick(c,headers,["sevDeskUmsatzsteuer","Umsatzsteuer"],-1)||"20,00",
+      sevdeskPurchasePrice:pick(c,headers,["sevDeskEinkaufspreis","Einkaufspreis"],-1),
+      sevdeskCategory:pick(c,headers,["sevDeskKategorie"],-1)||"Standard",
       printCostPerPosition:printCostRaw,
       sizes:splitList(pick(c,headers,["GrÃ¶ÃŸen","Groessen"],4+offset).replaceAll("|",",")),
       shopifyVariantIds:shopifyVariantIds,
@@ -909,6 +1045,12 @@ async function importCsv(e){
       imgLeftSleeve:pick(c,headers,["BildLinkerÃ„rmel","BildLinkerAermel","Linker Ã„rmel","Linker Aermel"],8+offset+printCostOffset+shopifyOffset+personalizableOffset),
       imgRightSleeve:pick(c,headers,["BildRechterÃ„rmel","BildRechterAermel","Rechter Ã„rmel","Rechter Aermel"],9+offset+printCostOffset+shopifyOffset+personalizableOffset)
     };
+    const articleNumberKey=normalizeArticleNumber(product.sevdeskArticleNumber);
+    if(articleNumberKey){
+      if(existingArticleNumbers.has(articleNumberKey)){alert("Import gestoppt: Artikelnummer "+product.sevdeskArticleNumber+" gibt es bereits bei \""+existingArticleNumbers.get(articleNumberKey)+"\".");e.target.value="";return;}
+      if(importArticleNumbers.has(articleNumberKey)){alert("Import gestoppt: Artikelnummer "+product.sevdeskArticleNumber+" ist in der CSV doppelt bei \""+importArticleNumbers.get(articleNumberKey)+"\" und \""+product.title+"\".");e.target.value="";return;}
+      importArticleNumbers.set(articleNumberKey,product.title);
+    }
     rows.push(rowFromProduct(product));
   }
   if(!rows.length){alert(skipped?skipped+" vorhandene Produkte Ã¼bersprungen. Keine neuen Produkte importiert.":"Keine Produkte gefunden.");e.target.value="";return}
@@ -920,6 +1062,40 @@ async function importCsv(e){
   await loadAll();
 }
 
+function sumQuantities(quantities){
+  return (quantities||[]).reduce((sum,q)=>sum+(Number(q.qty)||0),0);
+}
+
+function exportSevdeskCsv(){
+  if(!requests.length){alert("Keine Anfragen geladen.");return;}
+  const rows=[["Datum","Status","Kunde E-Mail","Telefon","Anfrage ID","Position","Beschreibung","Kategorie","Menge","Einzelpreis netto/brutto","Druckkosten","Gesamt","Notiz"]];
+  requests.forEach(r=>{
+    const items=r.order_data?.items||[];
+    items.forEach((item,idx)=>{
+      const qty=sumQuantities(item.quantities);
+      const unitPrice=Number(String(item.price||0).replace(",","."))||0;
+      const printTotal=Number(item.printCostTotal||0)||0;
+      const lineTotal=qty*unitPrice+printTotal;
+      rows.push([
+        formatDate(r.created_at),
+        r.status||"Neu",
+        r.customer_email||"",
+        r.phone||"",
+        r.id||"",
+        idx+1,
+        item.title||"",
+        [item.category,item.subcategory].filter(Boolean).join(" / "),
+        qty,
+        formatPrice(unitPrice),
+        formatPrice(printTotal),
+        formatPrice(lineTotal),
+        r.note||""
+      ]);
+    });
+  });
+  const csv="\ufeff"+rows.map(row=>row.map(csvEscape).join(";")).join("\r\n");
+  downloadText(csv,"sevdesk-anfragen-export.csv","text/csv;charset=utf-8");
+}
 function downloadText(text,filename,type){
   const blob=new Blob([text],{type}),url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
@@ -1146,6 +1322,16 @@ function escapeHtml(value){
 }
 
 window.deleteRequest=deleteRequest;
+
+
+
+
+
+
+
+
+
+
 
 
 
