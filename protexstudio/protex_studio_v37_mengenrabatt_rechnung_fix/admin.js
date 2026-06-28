@@ -872,7 +872,7 @@ function exportCsv(){
     p.imgRightSleeve||""
   ]));
   const csv="\ufeff"+rows.map(row=>row.map(csvEscape).join(",")).join("\r\n");
-  downloadText(csv,"produkte-export.csv","text/csv;charset=utf-8");
+  downloadText(csv,"interner-produkte-export-nicht-fuer-sevdesk.csv","text/csv;charset=utf-8");
 }
 
 function exportSevdeskProductCsv(){
@@ -880,7 +880,7 @@ function exportSevdeskProductCsv(){
   if(!activeProducts.length){alert("Keine aktiven Produkte fuer sevDesk gefunden.");return;}
   const duplicates=duplicateArticleNumbersInList(activeProducts);
   if(duplicates.length){alert("Doppelte sevDesk Artikelnummer gefunden: "+duplicates[0].number+" bei \""+(duplicates[0].first.title||"")+"\" und \""+(duplicates[0].second.title||"")+"\". Bitte zuerst korrigieren.");return;}
-  const rows=[["Artikelnumer","Name","Einheit","Bestand","Bestand aktiviert","Umsatzsteuer","Einkaufspreis","Verkaufspreis","Kategorie","Beschreibung"]];
+  const rows=[["Artikelnummer","Name","Einheit","Bestand","Bestand aktiviert","Umsatzsteuer","Einkaufspreis","Verkaufspreis","Kategorie","Beschreibung"]];
   activeProducts.forEach(p=>{
     rows.push([
       p.sevdeskArticleNumber||String(p.id||slugify(p.title||"artikel")),
@@ -897,6 +897,7 @@ function exportSevdeskProductCsv(){
   });
   const csv="\ufeff"+rows.map(row=>row.map(csvEscape).join(";")).join("\r\n");
   downloadText(csv,"sevdesk-artikel-export.csv","text/csv;charset=utf-8");
+  alert("sevDesk Datei erstellt: sevdesk-artikel-export.csv\n\nBitte nur diese Datei bei sevDesk importieren. Nicht den internen Produkte-Export verwenden.");
 }
 
 function formatSevdeskDecimal(value,fallback){
