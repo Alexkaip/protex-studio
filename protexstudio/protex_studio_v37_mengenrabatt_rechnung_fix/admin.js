@@ -652,7 +652,7 @@ function duplicateArticleNumbersInList(list){
   return duplicates;
 }
 function parseMoneyValue(value){
-  const raw=String(value??"").trim();
+  const raw=String(value??"").trim().replace(/[^\d,.\-]/g,"");
   if(!raw)return null;
   const normalized=raw.includes(",") ? raw.replace(/\./g,"").replace(",",".") : raw;
   const n=Number(normalized);
@@ -901,11 +901,8 @@ function exportSevdeskProductCsv(){
 }
 
 function formatSevdeskDecimal(value,fallback){
-  const raw=String(value??"").trim();
-  if(!raw)return fallback||"";
-  const normalized=raw.includes(",") ? raw.replace(/\./g,"").replace(",",".") : raw;
-  const n=Number(normalized);
-  if(!Number.isFinite(n))return fallback||"";
+  const n=parseMoneyValue(value);
+  if(n==null)return fallback||"";
   return n.toFixed(2).replace(".",",");
 }
 
@@ -990,12 +987,14 @@ function csvEscape(value){
 
 function parseCsv(text){
   text=String(text||"").replace(/^\ufeff/,"");
+  const firstLine=(text.split(/\r?\n/).find(line=>line.trim())||"");
+  const delimiter=(firstLine.match(/;/g)||[]).length>=(firstLine.match(/,/g)||[]).length ? ";" : ",";
   const rows=[];let row=[],cur="",quoted=false;
   for(let i=0;i<text.length;i++){
     const ch=text[i];
     if(ch==='"'&&text[i+1]==='"'){cur+='"';i++;continue}
     if(ch==='"'){quoted=!quoted;continue}
-    if((ch===","||ch===";")&&!quoted){row.push(cur.trim());cur="";continue}
+    if(ch===delimiter&&!quoted){row.push(cur.trim());cur="";continue}
     if((ch==="\n"||ch==="\r")&&!quoted){
       if(ch==="\r"&&text[i+1]==="\n")i++;
       row.push(cur.trim());
@@ -1010,7 +1009,9 @@ function parseCsv(text){
 }
 
 function normalizeHeader(value){
-  return String(value||"").toLowerCase().replace(/\s+/g,"").replace(/ae/g,"ae").replace(/oe/g,"oe").replace(/ue/g,"ue").replace(/ss/g,"ss");
+  return String(value||"").toLowerCase()
+    .replace(/ä/g,"ae").replace(/ö/g,"oe").replace(/ü/g,"ue").replace(/ß/g,"ss")
+    .replace(/[^a-z0-9]/g,"");
 }
 
 function normalizeProductType(value){
@@ -1055,10 +1056,14 @@ async function importCsv(e){
   const parsed=parseCsv(text);
   if(parsed.length<2){alert("Keine Produkte gefunden.");e.target.value="";return}
   const headers=parsed[0].map(normalizeHeader);
-  const articleNumberHeaders=["sevDeskArtikelnummer","sevDesk Artikelnummer","Artikelnumer","Artikelnummer","Nr.","Nr","Prod.Nr.","ProdNr","Artikel-Nr.","Art.-Nr."];
-  const grossPriceHeaders=["Preis (Brutto)","Preis Brutto","Bruttopreis","VK Brutto","Verkaufspreis Brutto"];
-  const netPriceHeaders=["Verkaufspreis","Preis (Netto)","Preis Netto","Nettopreis","VK Netto"];
-  const taxHeaders=["sevDeskUmsatzsteuer","Umsatzsteuer","MwSt","Mehrwertsteuer","Steuersatz"];
+  const articleNumberHeaders=["sevDeskArtikelnummer","sevDesk Artikelnummer","Artikelnumer","Artikelnummer","Nr.","Nr","Prod.Nr.","ProdNr","Produktnummer","Artikel-Nr.","Art.-Nr.","Art Nr"];
+  const grossPriceHeaders=["Preis (Brutto)","Preis Brutto","Bruttopreis","VK Brutto","Verkaufspreis Brutto","Verkaufspreis (Brutto)"];
+  const netPriceHeaders=["Verkaufspreis","Preis (Netto)","Preis Netto","Nettopreis","VK Netto","Verkaufspreis Netto","Verkaufspreis (Netto)"];
+  const taxHeaders=["sevDeskUmsatzsteuer","Umsatzsteuer","Umsatzsteuer in %","MwSt","Mehrwertsteuer","Steuersatz"];
+  const purchasePriceHeaders=["sevDeskEinkaufspreis","Einkaufspreis","Einkaufspreis Netto","Einkaufspreis (Netto)","EK","EK Netto"];
+  const descHeaders=["Beschreibung","Produktbeschreibung","Artikelbeschreibung","Beschreibung (Artikel)","Kurzbeschreibung","Langbeschreibung","Text","Beschreibungstext"];
+  const categoryHeaders=["Kategorie","Artikelkategorie"];
+  const hasDescHeader=hasAnyHeader(headers,descHeaders);
   const isSevdeskArticleCsv=hasAnyHeader(headers,articleNumberHeaders)&&(hasAnyHeader(headers,grossPriceHeaders)||hasAnyHeader(headers,netPriceHeaders)||hasAnyHeader(headers,taxHeaders));
   const hasSubcategory=headers.includes(normalizeHeader("Unterkategorie"));
   const hasShopifyVariantIds=headers.includes(normalizeHeader("ShopifyVariantIDs"));
@@ -1086,7 +1091,7 @@ async function importCsv(e){
     const printRuleRaw=pick(c,headers,["DruckRegel","Druck Regel","PrintRule"],-1);
     if(!title)continue;
     const subcategory=isSevdeskArticleCsv ? "" : pick(c,headers,["Unterkategorie","Subkategorie","Subcategory"],hasSubcategory?2:-1);
-    const descRaw=pick(c,headers,["Beschreibung","Artikelbeschreibung","Beschreibung (Artikel)","Kurzbeschreibung","Langbeschreibung","Text","Beschreibungstext"],isSevdeskArticleCsv?-1:2+offset);
+    const descRaw=pick(c,headers,descHeaders,isSevdeskArticleCsv?-1:2+offset);
     if(title.trim().toLowerCase()==="t-shirt premium" && descRaw.trim().toLowerCase()==="100% baumwolle")continue;
     const category=isSevdeskArticleCsv ? "" : pick(c,headers,["Kategorie"],1);
     const productKey=keyFor(title,category,subcategory);
@@ -1098,7 +1103,7 @@ async function importCsv(e){
     const grossPriceRaw=pick(c,headers,grossPriceHeaders,-1);
     const netPriceRaw=pick(c,headers,netPriceHeaders,isSevdeskArticleCsv?7:-1);
     const importPrice=isSevdeskArticleCsv
-      ? (grossPriceRaw || formatSevdeskDecimal(netToGrossPrice(netPriceRaw,taxRaw),""))
+      ? (grossPriceRaw ? formatSevdeskDecimal(grossPriceRaw,"") : formatSevdeskDecimal(netToGrossPrice(netPriceRaw,taxRaw),""))
       : pick(c,headers,["Preis","Verkaufspreis"],3+offset);
     const product={
       title:title,
@@ -1110,11 +1115,11 @@ async function importCsv(e){
       price:importPrice,
       sevdeskArticleNumber:pick(c,headers,articleNumberHeaders,-1),
       sevdeskUnit:pick(c,headers,["sevDeskEinheit","Einheit"],-1)||"Stk",
-      sevdeskStock:pick(c,headers,["sevDeskBestand","Bestand"],-1)||"0,00",
+      sevdeskStock:formatSevdeskDecimal(pick(c,headers,["sevDeskBestand","Bestand"],-1),"0,00"),
       sevdeskStockEnabled:["true","1","ja","yes"].includes(String(pick(c,headers,["sevDeskBestandAktiv","Bestand aktiviert"],-1)).toLowerCase()),
-      sevdeskTaxRate:taxRaw,
-      sevdeskPurchasePrice:pick(c,headers,["sevDeskEinkaufspreis","Einkaufspreis","Einkaufspreis Netto","EK","EK Netto"],-1),
-      sevdeskCategory:(isSevdeskArticleCsv?pick(c,headers,["Kategorie","Artikelkategorie"],8):pick(c,headers,["sevDeskKategorie"],-1))||"Standard",
+      sevdeskTaxRate:formatSevdeskDecimal(taxRaw,"20,00"),
+      sevdeskPurchasePrice:formatSevdeskDecimal(pick(c,headers,purchasePriceHeaders,-1),""),
+      sevdeskCategory:(isSevdeskArticleCsv?pick(c,headers,categoryHeaders,8):pick(c,headers,["sevDeskKategorie"],-1))||"Standard",
       printCostPerPosition:isSevdeskArticleCsv?"":printCostRaw,
       sizes:isSevdeskArticleCsv?[]:splitList(pick(c,headers,["Groessen","Groessen"],4+offset).replaceAll("|",",")),
       shopifyVariantIds:shopifyVariantIds,
@@ -1138,7 +1143,7 @@ async function importCsv(e){
       const merged={
         ...existingProduct,
         title:product.title||existingProduct.title,
-        desc:product.desc||existingProduct.desc,
+        desc:(isSevdeskArticleCsv&&hasDescHeader)?product.desc:(product.desc||existingProduct.desc),
         price:product.price||existingProduct.price,
         sevdeskArticleNumber:product.sevdeskArticleNumber||existingProduct.sevdeskArticleNumber,
         sevdeskUnit:product.sevdeskUnit||existingProduct.sevdeskUnit,
