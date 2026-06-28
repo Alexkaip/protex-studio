@@ -566,6 +566,7 @@ function renderProducts(){
   const list=document.getElementById("product-list"),q=document.getElementById("search").value.toLowerCase();
   list.innerHTML="";
   const filtered=products.filter(p=>!q||[p.title,p.desc,p.category,p.subcategory,productTypeLabel(p.productType)].join(" ").toLowerCase().includes(q));
+  renderProfitSummary(filtered);
   if(!filtered.length){list.innerHTML='<div class="notice">Keine Produkte gefunden.</div>';return}
 
   const categoryNames=[...new Set([...categories,...filtered.map(p=>p.category||"Ohne Kategorie")])]
@@ -608,9 +609,10 @@ function createProductAdminRow(p){
   row.className="product-admin-item";
   row.innerHTML='<img src="'+(p.imgFront||"")+'" alt=""><div><strong></strong><div class="sub"></div><div class="product-actions"></div></div>';
   row.querySelector("strong").textContent=p.title;
-  const printInfo=p.printCostPerPosition!==""&&p.printCostPerPosition!=null ? " · Druck EUR "+formatPrice(p.printCostPerPosition) : "";
+  const printInfo=p.printCostPerPosition!==""&&p.printCostPerPosition!=null ? " - Druck EUR "+formatPrice(p.printCostPerPosition) : "";
+  const profitInfo=profitTextForProduct(p);
   const sevdeskInfo=p.sevdeskArticleNumber ? " - ArtNr "+p.sevdeskArticleNumber : "";
-  row.querySelector(".sub").textContent="EUR "+formatPrice(p.price)+" · "+productTypeLabel(p.productType)+" · "+(p.active?"aktiv":"inaktiv")+" · "+(p.personalizable!==false?"Konfigurator":"nur Shop")+printInfo+sevdeskInfo;
+  row.querySelector(".sub").textContent="EUR "+formatPrice(p.price)+" - "+productTypeLabel(p.productType)+" - "+(p.active?"aktiv":"inaktiv")+" - "+(p.personalizable!==false?"Konfigurator":"nur Shop")+profitInfo+printInfo+sevdeskInfo;
   const actions=row.querySelector(".product-actions");
   actions.appendChild(actionBtn("Bearbeiten","edit-btn",()=>editProduct(p)));
   actions.appendChild(actionBtn("Duplizieren","copy-btn",()=>duplicateProduct(p)));
@@ -648,6 +650,46 @@ function duplicateArticleNumbersInList(list){
     else seen.set(number,p);
   });
   return duplicates;
+}
+function parseMoneyValue(value){
+  const raw=String(value??"").trim();
+  if(!raw)return null;
+  const normalized=raw.includes(",") ? raw.replace(/\./g,"").replace(",",".") : raw;
+  const n=Number(normalized);
+  return Number.isFinite(n)?n:null;
+}
+
+function productProfit(product){
+  const sell=parseMoneyValue(product.price);
+  const buy=parseMoneyValue(product.sevdeskPurchasePrice);
+  if(sell==null||buy==null)return null;
+  const profit=sell-buy;
+  const margin=sell!==0 ? (profit/sell)*100 : 0;
+  return {sell,buy,profit,margin};
+}
+
+function profitTextForProduct(product){
+  const data=productProfit(product);
+  if(!data)return "";
+  return " - Gewinn EUR "+formatPrice(data.profit)+" ("+formatPercent(data.margin)+")";
+}
+
+function formatPercent(value){
+  const n=Number(value);
+  return Number.isFinite(n)?n.toFixed(1).replace(".",",")+"%":"0,0%";
+}
+
+function renderProfitSummary(list){
+  const el=document.getElementById("product-profit-summary");
+  if(!el)return;
+  const rows=list.map(productProfit).filter(Boolean);
+  if(!rows.length){el.classList.add("hidden");el.textContent="";return;}
+  const sell=rows.reduce((sum,r)=>sum+r.sell,0);
+  const buy=rows.reduce((sum,r)=>sum+r.buy,0);
+  const profit=sell-buy;
+  const margin=sell!==0 ? (profit/sell)*100 : 0;
+  el.classList.remove("hidden");
+  el.textContent="Gewinn sichtbar: EUR "+formatPrice(profit)+" ("+formatPercent(margin)+") - Verkauf EUR "+formatPrice(sell)+" - Einkauf EUR "+formatPrice(buy);
 }
 function productTypeLabel(type){
   const map={configurator:"Konfigurator",shop_only:"Nur Shop",set:"Set",print_fee:"Druckkosten/Zubehoer"};
@@ -986,6 +1028,7 @@ async function importCsv(e){
   const parsed=parseCsv(text);
   if(parsed.length<2){alert("Keine Produkte gefunden.");e.target.value="";return}
   const headers=parsed[0].map(normalizeHeader);
+  const isSevdeskArticleCsv=headers.includes(normalizeHeader("Artikelnumer"))&&headers.includes(normalizeHeader("Umsatzsteuer"))&&headers.includes(normalizeHeader("Einkaufspreis"))&&headers.includes(normalizeHeader("Verkaufspreis"));
   const hasSubcategory=headers.includes(normalizeHeader("Unterkategorie"));
   const hasShopifyVariantIds=headers.includes(normalizeHeader("ShopifyVariantIDs"));
   const hasPrintCost=headers.includes(normalizeHeader("DruckkostenProDruck"))||headers.includes(normalizeHeader("Druckkosten"))||headers.includes(normalizeHeader("Druckkosten pro Druck"));
@@ -1012,7 +1055,7 @@ async function importCsv(e){
     const subcategory=pick(c,headers,["Unterkategorie","Subkategorie","Subcategory"],hasSubcategory?2:-1);
     const descRaw=pick(c,headers,["Beschreibung"],2+offset);
     if(title.trim().toLowerCase()==="t-shirt premium" && descRaw.trim().toLowerCase()==="100% baumwolle")continue;
-    const category=pick(c,headers,["Kategorie"],1);
+    const category=isSevdeskArticleCsv ? "" : pick(c,headers,["Kategorie"],1);
     const productKey=keyFor(title,category,subcategory);
     if(existingKeys.has(productKey)||importKeys.has(productKey)){skipped++;continue}
     importKeys.add(productKey);
@@ -1022,24 +1065,24 @@ async function importCsv(e){
     const personalizableRaw=pick(c,headers,["Personalisierbar","Konfigurator","Im Konfigurator","Nur Shop"],hasPersonalizable?6+offset+printCostOffset+shopifyOffset:-1);
     const product={
       title:title,
-      productType:normalizeProductType(productTypeRaw),
+      productType:isSevdeskArticleCsv?"shop_only":normalizeProductType(productTypeRaw),
       printRule:normalizePrintRule(printRuleRaw),
       category:category,
       subcategory:subcategory,
       desc:descRaw,
-      price:pick(c,headers,["Preis"],3+offset),
+      price:isSevdeskArticleCsv?pick(c,headers,["Verkaufspreis"],7):pick(c,headers,["Preis","Verkaufspreis"],3+offset),
       sevdeskArticleNumber:pick(c,headers,["sevDeskArtikelnummer","sevDesk Artikelnummer","Artikelnumer","Artikelnummer"],-1),
       sevdeskUnit:pick(c,headers,["sevDeskEinheit","Einheit"],-1)||"Stk",
       sevdeskStock:pick(c,headers,["sevDeskBestand","Bestand"],-1)||"0,00",
       sevdeskStockEnabled:["true","1","ja","yes"].includes(String(pick(c,headers,["sevDeskBestandAktiv","Bestand aktiviert"],-1)).toLowerCase()),
       sevdeskTaxRate:pick(c,headers,["sevDeskUmsatzsteuer","Umsatzsteuer"],-1)||"20,00",
       sevdeskPurchasePrice:pick(c,headers,["sevDeskEinkaufspreis","Einkaufspreis"],-1),
-      sevdeskCategory:pick(c,headers,["sevDeskKategorie"],-1)||"Standard",
+      sevdeskCategory:(isSevdeskArticleCsv?pick(c,headers,["Kategorie"],8):pick(c,headers,["sevDeskKategorie"],-1))||"Standard",
       printCostPerPosition:printCostRaw,
       sizes:splitList(pick(c,headers,["GrÃ¶ÃŸen","Groessen"],4+offset).replaceAll("|",",")),
       shopifyVariantIds:shopifyVariantIds,
-      active:!activeRaw || !["false","0","nein","no","inaktiv"].includes(String(activeRaw).toLowerCase()),
-      personalizable:!personalizableRaw || !["false","0","nein","no","nur shop","shop","shopify"].includes(String(personalizableRaw).toLowerCase()),
+      active:isSevdeskArticleCsv?true:(!activeRaw || !["false","0","nein","no","inaktiv"].includes(String(activeRaw).toLowerCase())),
+      personalizable:isSevdeskArticleCsv?false:(!personalizableRaw || !["false","0","nein","no","nur shop","shop","shopify"].includes(String(personalizableRaw).toLowerCase())),
       imgFront:pick(c,headers,["BildVorderseite","Bild vorne","Vorderseite","BildVorne"],6+offset+printCostOffset+shopifyOffset+personalizableOffset),
       imgBack:pick(c,headers,["BildRÃ¼ckseite","BildRueckseite","Bild hinten","RÃ¼ckseite","Rueckseite","BildHinten"],7+offset+printCostOffset+shopifyOffset+personalizableOffset),
       imgLeftSleeve:pick(c,headers,["BildLinkerÃ„rmel","BildLinkerAermel","Linker Ã„rmel","Linker Aermel"],8+offset+printCostOffset+shopifyOffset+personalizableOffset),
@@ -1322,6 +1365,8 @@ function escapeHtml(value){
 }
 
 window.deleteRequest=deleteRequest;
+
+
 
 
 
