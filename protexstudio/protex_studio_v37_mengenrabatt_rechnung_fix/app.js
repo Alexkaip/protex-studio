@@ -2,6 +2,7 @@ let supabaseClient;
 let products = [];
 let categories = [];
 let categoryImages = {};
+let categoryOrders = {};
 let subcategories = [];
 let filteredProducts = [];
 let currentProductIndex = 0;
@@ -326,10 +327,20 @@ async function loadProducts(){
 
 async function loadCategories(){
   try{
-    const {data,error}=await supabaseClient.from("categories").select("*").order("name",{ascending:true});
+    let {data,error}=await supabaseClient.from("categories").select("*").order("sort_order",{ascending:true}).order("name",{ascending:true});
+    if(error && String(error.message||"").includes("sort_order")){
+      const fallback=await supabaseClient.from("categories").select("*").order("name",{ascending:true});
+      data=fallback.data;
+      error=fallback.error;
+    }
     if(error)throw error;
     categoryImages={};
-    (data||[]).forEach(row=>{if(row.name)categoryImages[row.name]=row.image_url||"";});
+    categoryOrders={};
+    (data||[]).forEach((row,index)=>{
+      if(!row.name)return;
+      categoryImages[row.name]=row.image_url||"";
+      categoryOrders[row.name]=Number.isFinite(Number(row.sort_order))?Number(row.sort_order):index;
+    });
     categories=(data||[]).map(row=>row.name).filter(Boolean);
   }catch(err){
     console.warn("Kategorien-Tabelle konnte nicht geladen werden:",err.message);
@@ -343,9 +354,14 @@ async function loadCategories(){
 
 async function loadSubcategories(){
   try{
-    const {data,error}=await supabaseClient.from("subcategories").select("*").order("category",{ascending:true}).order("name",{ascending:true});
+    let {data,error}=await supabaseClient.from("subcategories").select("*").order("category",{ascending:true}).order("sort_order",{ascending:true}).order("name",{ascending:true});
+    if(error && String(error.message||"").includes("sort_order")){
+      const fallback=await supabaseClient.from("subcategories").select("*").order("category",{ascending:true}).order("name",{ascending:true});
+      data=fallback.data;
+      error=fallback.error;
+    }
     if(error)throw error;
-    subcategories=(data||[]).map(row=>({category:row.category||"",name:row.name||"",imageUrl:row.image_url||""})).filter(row=>row.category&&row.name);
+    subcategories=(data||[]).map((row,index)=>({category:row.category||"",name:row.name||"",imageUrl:row.image_url||"",sortOrder:Number.isFinite(Number(row.sort_order))?Number(row.sort_order):index})).filter(row=>row.category&&row.name);
   }catch(err){
     console.warn("Unterkategorien-Tabelle konnte nicht geladen werden:",err.message);
     subcategories=[];
@@ -354,7 +370,7 @@ async function loadSubcategories(){
 
 function getCategories(){
   const productCats=products.map(p=>p.category).filter(Boolean);
-  return [...new Set([...categories,...productCats])].sort();
+  return [...new Set([...categories,...productCats])].sort((a,b)=>(categoryOrders[a]??9999)-(categoryOrders[b]??9999)||String(a).localeCompare(String(b)));
 }
 
 function buildCategoryFilter(){
@@ -393,7 +409,11 @@ function getSubcategoriesForCategory(cat){
     .map(p=>p.subcategory)
     .filter(Boolean);
   return [...new Set([...fromTable,...fromProducts])]
-    .sort();
+    .sort((a,b)=>{
+      const rowA=subcategories.find(s=>s.category===cat&&s.name===a);
+      const rowB=subcategories.find(s=>s.category===cat&&s.name===b);
+      return (rowA?.sortOrder??9999)-(rowB?.sortOrder??9999)||String(a).localeCompare(String(b));
+    });
 }
 
 function subcategoryImage(category,name){

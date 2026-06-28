@@ -1,4 +1,4 @@
-let supabaseClient,session=null,products=[],categories=[],subcategories=[],categoryImages={},requests=[],quantityDiscountTiers=[],couponCodes=[],visitorStats={total:0,today:0,last7:0},printCostPerPosition=5,productColorVariants=[];
+let supabaseClient,session=null,products=[],categories=[],subcategories=[],categoryImages={},categoryOrders={},requests=[],quantityDiscountTiers=[],couponCodes=[],visitorStats={total:0,today:0,last7:0},printCostPerPosition=5,productColorVariants=[];
 const SIDES=["front","back","leftSleeve","rightSleeve"];
 const SIDE_LABELS={front:"Vorderseite",back:"Rueckseite",leftSleeve:"Linker Aermel",rightSleeve:"Rechter Aermel"};
 function sideLabel(side){return SIDE_LABELS[side]||side;}
@@ -182,16 +182,26 @@ async function loadProducts(){
 
 async function loadCategories(){
   try{
-    const{data,error}=await supabaseClient.from("categories").select("*").order("name",{ascending:true});
+    let {data,error}=await supabaseClient.from("categories").select("*").order("sort_order",{ascending:true}).order("name",{ascending:true});
+    if(error && String(error.message||"").includes("sort_order")){
+      const fallback=await supabaseClient.from("categories").select("*").order("name",{ascending:true});
+      data=fallback.data;
+      error=fallback.error;
+    }
     if(error)throw error;
     categoryImages={};
-    (data||[]).forEach(r=>{if(r.name)categoryImages[r.name]=r.image_url||"";});
+    categoryOrders={};
+    (data||[]).forEach((r,index)=>{
+      if(!r.name)return;
+      categoryImages[r.name]=r.image_url||"";
+      categoryOrders[r.name]=Number.isFinite(Number(r.sort_order))?Number(r.sort_order):index;
+    });
     const stored=(data||[]).map(r=>r.name).filter(Boolean);
     const productCats=products.map(p=>p.category).filter(Boolean);
-    categories=[...new Set([...stored,...productCats])].sort();
+    categories=sortCategoryNames([...new Set([...stored,...productCats])]);
   }catch(err){
     const productCats=products.map(p=>p.category).filter(Boolean);
-    categories=[...new Set(productCats)].sort();
+    categories=sortCategoryNames([...new Set(productCats)]);
     showWarning("Hinweis: Tabelle categories fehlt oder ist nicht freigegeben. Bitte SQL aus supabase-setup-v18.sql ausfuehren. "+err.message);
   }
 }
@@ -199,9 +209,14 @@ async function loadCategories(){
 async function loadSubcategories(){
   const productSubs=products.filter(p=>p.category&&p.subcategory).map(p=>({category:p.category,name:p.subcategory}));
   try{
-    const{data,error}=await supabaseClient.from("subcategories").select("*").order("category",{ascending:true}).order("name",{ascending:true});
+    let {data,error}=await supabaseClient.from("subcategories").select("*").order("category",{ascending:true}).order("sort_order",{ascending:true}).order("name",{ascending:true});
+    if(error && String(error.message||"").includes("sort_order")){
+      const fallback=await supabaseClient.from("subcategories").select("*").order("category",{ascending:true}).order("name",{ascending:true});
+      data=fallback.data;
+      error=fallback.error;
+    }
     if(error)throw error;
-    const stored=(data||[]).map(r=>({category:r.category||"",name:r.name||"",imageUrl:r.image_url||""})).filter(r=>r.category&&r.name);
+    const stored=(data||[]).map((r,index)=>({category:r.category||"",name:r.name||"",imageUrl:r.image_url||"",sortOrder:Number.isFinite(Number(r.sort_order))?Number(r.sort_order):index})).filter(r=>r.category&&r.name);
     subcategories=uniqueSubcategories([...stored,...productSubs]);
   }catch(err){
     subcategories=uniqueSubcategories(productSubs);
@@ -217,9 +232,35 @@ function uniqueSubcategories(rows){
     if(!category||!name)return;
     const key=category.toLowerCase()+"|"+name.toLowerCase();
     const current=map.get(key)||{};
-    map.set(key,{category,name,imageUrl:r.imageUrl||current.imageUrl||""});
+    map.set(key,{category,name,imageUrl:r.imageUrl||current.imageUrl||"",sortOrder:Number.isFinite(Number(r.sortOrder))?Number(r.sortOrder):(current.sortOrder ?? 9999)});
   });
-  return [...map.values()].sort((a,b)=>a.category.localeCompare(b.category)||a.name.localeCompare(b.name));
+  return [...map.values()].sort((a,b)=>a.category.localeCompare(b.category)||(a.sortOrder??9999)-(b.sortOrder??9999)||a.name.localeCompare(b.name));
+}
+
+function sortCategoryNames(names){
+  return [...names].sort((a,b)=>(categoryOrders[a]??9999)-(categoryOrders[b]??9999)||String(a).localeCompare(String(b)));
+}
+
+async function upsertCategoryRow(row){
+  let {error}=await supabaseClient.from("categories").upsert(row,{onConflict:"name"});
+  if(error && String(error.message||"").includes("sort_order")){
+    const fallback={...row};
+    delete fallback.sort_order;
+    const retry=await supabaseClient.from("categories").upsert(fallback,{onConflict:"name"});
+    error=retry.error;
+  }
+  if(error)throw error;
+}
+
+async function upsertSubcategoryRow(row){
+  let {error}=await supabaseClient.from("subcategories").upsert(row,{onConflict:"category,name"});
+  if(error && String(error.message||"").includes("sort_order")){
+    const fallback={...row};
+    delete fallback.sort_order;
+    const retry=await supabaseClient.from("subcategories").upsert(fallback,{onConflict:"category,name"});
+    error=retry.error;
+  }
+  if(error)throw error;
 }
 
 function renderCategorySelect(){
@@ -233,7 +274,11 @@ function renderCategorySelect(){
 function getSubcategories(category){
   const fromTable=subcategories.filter(s=>(!category||s.category===category)).map(s=>s.name);
   const fromProducts=products.filter(p=>(!category||p.category===category)&&p.subcategory).map(p=>p.subcategory);
-  return [...new Set([...fromTable,...fromProducts].filter(Boolean))].sort();
+  return [...new Set([...fromTable,...fromProducts].filter(Boolean))].sort((a,b)=>{
+    const rowA=subcategories.find(s=>(!category||s.category===category)&&s.name===a);
+    const rowB=subcategories.find(s=>(!category||s.category===category)&&s.name===b);
+    return (rowA?.sortOrder??9999)-(rowB?.sortOrder??9999)||String(a).localeCompare(String(b));
+  });
 }
 
 function renderSubcategoryOptions(){
@@ -268,12 +313,16 @@ function renderSubcategoryList(){
   if(!category){list.innerHTML='<div class="sub">Bitte Hauptkategorie waehlen.</div>';return}
   const rows=subcategories.filter(s=>s.category===category);
   if(!rows.length){list.innerHTML='<div class="sub">Noch keine Unterkategorien.</div>';return}
-  rows.forEach(s=>{
+  rows.forEach((s,index)=>{
     const chip=document.createElement("span");
     chip.className="category-chip";
-    chip.innerHTML=(s.imageUrl?'<img class="chip-img" src="'+s.imageUrl+'" alt="">':"")+"<span></span><button class='chip-image-btn' type='button'>Bild</button><button type='button'>x</button><input class='hidden' type='file' accept='image/*'>";
+    chip.innerHTML=(s.imageUrl?'<img class="chip-img" src="'+s.imageUrl+'" alt="">':"")+"<span></span><button class='chip-move-btn chip-up-btn' type='button' title='Nach oben'>&#8593;</button><button class='chip-move-btn chip-down-btn' type='button' title='Nach unten'>&#8595;</button><button class='chip-image-btn' type='button'>Bild</button><button type='button'>x</button><input class='hidden' type='file' accept='image/*'>";
     chip.querySelector("span").textContent=s.name;
+    chip.querySelector(".chip-up-btn").disabled=index===0;
+    chip.querySelector(".chip-down-btn").disabled=index===rows.length-1;
     const fileInput=chip.querySelector("input[type=file]");
+    chip.querySelector(".chip-up-btn").addEventListener("click",()=>moveSubcategory(category,s.name,-1));
+    chip.querySelector(".chip-down-btn").addEventListener("click",()=>moveSubcategory(category,s.name,1));
     chip.querySelector(".chip-image-btn").addEventListener("click",()=>fileInput.click());
     fileInput.addEventListener("change",()=>updateSubcategoryImage(s.category,s.name,fileInput.files[0]));
     chip.querySelector("button:last-of-type").addEventListener("click",()=>removeSubcategory(s.category,s.name));
@@ -285,17 +334,73 @@ function renderCategoryList(){
   const list=document.getElementById("category-list");
   list.innerHTML="";
   if(!categories.length){list.innerHTML='<div class="sub">Noch keine Kategorien.</div>';return}
-  categories.forEach(c=>{
+  categories.forEach((c,index)=>{
     const chip=document.createElement("span");
     chip.className="category-chip";
-    chip.innerHTML=(categoryImages[c]?'<img class="chip-img" src="'+categoryImages[c]+'" alt="">':"")+"<span></span><button class='chip-image-btn' type='button'>Bild</button><button type='button'>x</button><input class='hidden' type='file' accept='image/*'>";
+    chip.innerHTML=(categoryImages[c]?'<img class="chip-img" src="'+categoryImages[c]+'" alt="">':"")+"<span></span><button class='chip-move-btn chip-up-btn' type='button' title='Nach oben'>&#8593;</button><button class='chip-move-btn chip-down-btn' type='button' title='Nach unten'>&#8595;</button><button class='chip-image-btn' type='button'>Bild</button><button type='button'>x</button><input class='hidden' type='file' accept='image/*'>";
     chip.querySelector("span").textContent=c;
+    chip.querySelector(".chip-up-btn").disabled=index===0;
+    chip.querySelector(".chip-down-btn").disabled=index===categories.length-1;
     const fileInput=chip.querySelector("input[type=file]");
+    chip.querySelector(".chip-up-btn").addEventListener("click",()=>moveCategory(c,-1));
+    chip.querySelector(".chip-down-btn").addEventListener("click",()=>moveCategory(c,1));
     chip.querySelector(".chip-image-btn").addEventListener("click",()=>fileInput.click());
     fileInput.addEventListener("change",()=>updateCategoryImage(c,fileInput.files[0]));
     chip.querySelector("button:last-of-type").addEventListener("click",()=>removeCategory(c));
     list.appendChild(chip);
   });
+}
+
+async function saveCategoryOrder(){
+  categories.forEach((name,index)=>{categoryOrders[name]=index;});
+  try{
+    for(let index=0;index<categories.length;index++){
+      const name=categories[index];
+      await upsertCategoryRow({name,image_url:categoryImages[name]||"",sort_order:index});
+    }
+  }catch(err){
+    showWarning("Reihenfolge konnte nicht dauerhaft gespeichert werden. Bitte SQL fuer Kategorie-Reihenfolge ausfuehren. "+err.message);
+  }
+}
+
+async function moveCategory(name,direction){
+  const index=categories.indexOf(name);
+  const target=index+direction;
+  if(index<0||target<0||target>=categories.length)return;
+  [categories[index],categories[target]]=[categories[target],categories[index]];
+  renderCategoryList();
+  renderCategorySelect();
+  renderSubcategoryParentSelect();
+  await saveCategoryOrder();
+}
+
+async function saveSubcategoryOrder(category){
+  const rows=subcategories.filter(s=>s.category===category);
+  rows.forEach((row,index)=>{row.sortOrder=index;});
+  try{
+    for(let index=0;index<rows.length;index++){
+      const row=rows[index];
+      await upsertSubcategoryRow({category:row.category,name:row.name,image_url:row.imageUrl||"",sort_order:index});
+    }
+  }catch(err){
+    showWarning("Unterkategorie-Reihenfolge konnte nicht dauerhaft gespeichert werden. Bitte SQL fuer Kategorie-Reihenfolge ausfuehren. "+err.message);
+  }
+}
+
+async function moveSubcategory(category,name,direction){
+  const rows=subcategories.filter(s=>s.category===category);
+  const index=rows.findIndex(s=>s.name===name);
+  const target=index+direction;
+  if(index<0||target<0||target>=rows.length)return;
+  [rows[index].sortOrder,rows[target].sortOrder]=[rows[target].sortOrder,rows[index].sortOrder];
+  if(rows[index].sortOrder===rows[target].sortOrder){
+    rows[index].sortOrder=index+direction;
+    rows[target].sortOrder=index;
+  }
+  subcategories=uniqueSubcategories(subcategories);
+  renderSubcategoryList();
+  renderSubcategoryOptions();
+  await saveSubcategoryOrder(category);
 }
 
 function normalizeDiscountTiers(value){
@@ -502,15 +607,16 @@ async function addCategory(){
   const imageFile=document.getElementById("new-category-image")?.files[0];
   const imageUrl=imageFile?await uploadFile(imageFile,"category"):(categoryImages[val]||"");
   try{
-    const{error}=await supabaseClient.from("categories").upsert({name:val,image_url:imageUrl},{onConflict:"name"});
-    if(error)throw error;
+    const nextOrder=categories.length;
+    await upsertCategoryRow({name:val,image_url:imageUrl,sort_order:categoryOrders[val]??nextOrder});
+    categoryOrders[val]=categoryOrders[val]??nextOrder;
   }catch(err){
     if(!categories.includes(val))categories.push(val);
     showWarning("Kategorie nur lokal hinzugefuegt. Fuer dauerhaftes Speichern bitte Tabelle categories anlegen. "+err.message);
   }
   if(!categories.includes(val))categories.push(val);
   if(imageUrl)categoryImages[val]=imageUrl;
-  categories.sort();
+  categories=sortCategoryNames(categories);
   input.value="";
   const imgInput=document.getElementById("new-category-image");if(imgInput)imgInput.value="";
   renderCategorySelect();
@@ -526,8 +632,7 @@ async function updateCategoryImage(name,file){
   if(!file)return;
   try{
     const imageUrl=await uploadFile(file,"category");
-    const{error}=await supabaseClient.from("categories").upsert({name,image_url:imageUrl},{onConflict:"name"});
-    if(error)throw error;
+    await upsertCategoryRow({name,image_url:imageUrl});
     categoryImages[name]=imageUrl;
     renderCategoryList();
   }catch(err){alert("Kategoriebild konnte nicht gespeichert werden: "+err.message)}
@@ -558,13 +663,13 @@ async function addSubcategory(){
   if(!name)return;
   const imageFile=document.getElementById("new-subcategory-image")?.files[0];
   const imageUrl=imageFile?await uploadFile(imageFile,"subcategory"):"";
+  const nextOrder=subcategories.filter(s=>s.category===category).length;
   try{
-    const{error}=await supabaseClient.from("subcategories").upsert({category,name,image_url:imageUrl},{onConflict:"category,name"});
-    if(error)throw error;
+    await upsertSubcategoryRow({category,name,image_url:imageUrl,sort_order:nextOrder});
   }catch(err){
     showWarning("Unterkategorie nur lokal hinzugefuegt. Bitte SQL fuer Unterkategorien ausfuehren. "+err.message);
   }
-  subcategories=uniqueSubcategories([...subcategories,{category,name,imageUrl}]);
+  subcategories=uniqueSubcategories([...subcategories,{category,name,imageUrl,sortOrder:nextOrder}]);
   input.value="";
   const imgInput=document.getElementById("new-subcategory-image");if(imgInput)imgInput.value="";
   renderSubcategoryList();
@@ -575,8 +680,7 @@ async function updateSubcategoryImage(category,name,file){
   if(!file)return;
   try{
     const imageUrl=await uploadFile(file,"subcategory");
-    const{error}=await supabaseClient.from("subcategories").upsert({category,name,image_url:imageUrl},{onConflict:"category,name"});
-    if(error)throw error;
+    await upsertSubcategoryRow({category,name,image_url:imageUrl});
     subcategories=uniqueSubcategories(subcategories.map(s=>s.category===category&&s.name===name?{...s,imageUrl}:s));
     renderSubcategoryList();
   }catch(err){alert("Unterkategoriebild konnte nicht gespeichert werden: "+err.message)}
@@ -965,7 +1069,7 @@ async function saveProduct(){
     if(!product.title)throw new Error("Produktname fehlt.");
     ensureUniqueArticleNumber(product.sevdeskArticleNumber,id);
     if(product.category && !categories.includes(product.category)){
-      await supabaseClient.from("categories").upsert({name:product.category},{onConflict:"name"});
+      await upsertCategoryRow({name:product.category,sort_order:categories.length});
     }
     const row=rowFromProduct(product);
     if(id){const{error}=await supabaseClient.from("products").update(row).eq("id",id);if(error)throw error}
@@ -1332,7 +1436,10 @@ async function importCsv(e){
   }
   if(!insertRows.length&&!updateJobs.length){alert(skipped?skipped+" doppelte Zeilen uebersprungen. Keine Produkte importiert oder aktualisiert.":"Keine Produkte gefunden.");e.target.value="";return}
   const importCats=[...new Set([...insertRows.map(r=>r.category),...updateJobs.map(j=>j.category)].filter(Boolean))];
-  for(const name of importCats){await supabaseClient.from("categories").upsert({name},{onConflict:"name"});}
+  for(const name of importCats){
+    const sortOrder=categoryOrders[name]??categories.length;
+    await upsertCategoryRow({name,sort_order:sortOrder});
+  }
   let importError=null;
   if(insertRows.length){
     const{error}=await supabaseClient.from("products").insert(insertRows);
