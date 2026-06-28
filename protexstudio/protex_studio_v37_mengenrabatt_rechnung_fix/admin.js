@@ -43,7 +43,7 @@ function bindEvents(){
   const reloadRequests=document.getElementById("reload-requests-btn");
   if(reloadRequests)reloadRequests.addEventListener("click",loadRequests);
   const toggleRequests=document.getElementById("toggle-requests-btn");
-  if(toggleRequests)toggleRequests.addEventListener("click",()=>scrollToRequests());
+  if(toggleRequests)toggleRequests.addEventListener("click",()=>toggleRequestsPanel());
   const sevdeskExportBtn=document.getElementById("sevdesk-export-btn");
   if(sevdeskExportBtn)sevdeskExportBtn.addEventListener("click",exportSevdeskCsv);
   const addDiscountRow=document.getElementById("add-discount-row-btn");
@@ -146,7 +146,7 @@ async function updateLoginState(){
     document.getElementById("admin-area").classList.add("hidden");
     document.getElementById("logout-btn").classList.add("hidden");
     ["toggle-requests-btn","toggle-discounts-btn","toggle-coupons-btn","toggle-stats-btn"].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.add("hidden");});
-    ["discount-panel","coupon-panel","printcost-panel","stats-panel"].forEach(id=>{const panel=document.getElementById(id);if(panel)panel.classList.add("hidden");});
+    ["requests-section","discount-panel","coupon-panel","printcost-panel","stats-panel"].forEach(id=>{const panel=document.getElementById(id);if(panel)panel.classList.add("hidden");});
   }
 }
 
@@ -566,7 +566,7 @@ function renderProducts(){
   const list=document.getElementById("product-list"),q=document.getElementById("search").value.toLowerCase();
   list.innerHTML="";
   const filtered=products.filter(p=>!q||[p.title,p.desc,p.category,p.subcategory,productTypeLabel(p.productType)].join(" ").toLowerCase().includes(q));
-  renderProfitSummary(filtered);
+  renderProfitSummary([]);
   if(!filtered.length){list.innerHTML='<div class="notice">Keine Produkte gefunden.</div>';return}
 
   const categoryNames=[...new Set([...categories,...filtered.map(p=>p.category||"Ohne Kategorie")])]
@@ -1164,9 +1164,12 @@ function updateRequestBadge(){
   badge.classList.toggle("hidden",count===0);
 }
 
-function scrollToRequests(){
+function toggleRequestsPanel(force){
   const section=document.getElementById("requests-section");
-  if(section)section.scrollIntoView({behavior:"smooth",block:"start"});
+  if(!section)return;
+  const show=typeof force==="boolean"?force:section.classList.contains("hidden");
+  section.classList.toggle("hidden",!show);
+  if(show)section.scrollIntoView({behavior:"smooth",block:"start"});
 }
 
 async function loadRequests(){
