@@ -25,7 +25,11 @@ function bindEvents(){
   document.getElementById("login-btn").addEventListener("click",login);
   document.getElementById("logout-btn").addEventListener("click",logout);
   document.getElementById("save-product-btn").addEventListener("click",saveProduct);
-  document.getElementById("reset-form-btn").addEventListener("click",resetForm);
+  document.getElementById("reset-form-btn").addEventListener("click",closeProductModal);
+  document.getElementById("open-product-modal-btn").addEventListener("click",openNewProductModal);
+  document.getElementById("close-product-modal-btn").addEventListener("click",closeProductModal);
+  const productModal=document.getElementById("product-form-modal");
+  if(productModal)productModal.addEventListener("click",e=>{if(e.target===productModal)closeProductModal();});
   document.getElementById("reload-btn").addEventListener("click",loadAll);
   document.getElementById("search").addEventListener("input",renderProducts);
   document.getElementById("p-category").addEventListener("change",renderSubcategoryOptions);
@@ -732,9 +736,34 @@ function setValue(id,value){
   const el=document.getElementById(id);
   if(el)el.value=value??"";
 }
+
+function openProductModal(){
+  const modal=document.getElementById("product-form-modal");
+  if(!modal)return;
+  modal.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+  setTimeout(()=>document.getElementById("p-title")?.focus(),40);
+}
+
+function closeProductModal(){
+  const modal=document.getElementById("product-form-modal");
+  if(!modal)return;
+  modal.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+  const status=document.getElementById("save-status");
+  if(status)status.textContent="";
+}
+
+function openNewProductModal(){
+  resetForm();
+  openProductModal();
+}
+
 function editProduct(p){
   document.getElementById("form-title").textContent="Produkt bearbeiten";
   document.getElementById("edit-id").value=p.id;
+  ["p-front","p-back","p-left-sleeve","p-right-sleeve"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  const status=document.getElementById("save-status");if(status)status.textContent="";
   document.getElementById("p-title").value=p.title;
   const productTypeInput=document.getElementById("p-product-type");
   if(productTypeInput)productTypeInput.value=p.productType||"configurator";
@@ -761,12 +790,13 @@ function editProduct(p){
   if(shopifyVariants)shopifyVariants.value=formatShopifyVariantIds(p.shopifyVariantIds);
   document.getElementById("p-active").checked=p.active;
   document.getElementById("p-personalizable").checked=p.personalizable!==false;
-  window.scrollTo({top:0,behavior:"smooth"});
+  openProductModal();
 }
 
 function resetForm(){
   document.getElementById("form-title").textContent="Produkt anlegen";
   document.getElementById("edit-id").value="";
+  const status=document.getElementById("save-status");if(status)status.textContent="";
   ["p-title","p-subcategory","p-desc","p-price","p-print-cost","p-shopify-variants","p-sevdesk-article-number","p-sevdesk-purchase-price"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
   setValue("p-sevdesk-unit","Stk");
   setValue("p-sevdesk-stock","0,00");
@@ -819,6 +849,7 @@ async function saveProduct(){
     status.textContent="Gespeichert.";
     resetForm();
     await loadAll();
+    closeProductModal();
   }catch(err){status.textContent=err.message}
 }
 

@@ -82,6 +82,29 @@ input[type=file]{width:100%;border:1px dashed #e2e8f0;background:#f8fafc;border-
 .admin-request-detail{margin-top:10px;max-height:520px;overflow:auto}
 .admin-request-detail h3{margin:12px 0 6px;font-size:1rem}
 .request-admin-controls{display:grid;grid-template-columns:1fr;gap:8px;background:#f8fafc;border:1px solid var(--border);border-radius:12px;padding:10px;margin:10px 0}
+
+/* Admin Produktfenster */
+body.modal-open{overflow:hidden}
+.product-modal{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1000;padding:24px;display:flex;align-items:center;justify-content:center}
+.product-modal-dialog{width:min(1180px,100%);max-height:calc(100vh - 48px);overflow:auto;background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:0 24px 80px rgba(15,23,42,.28)}
+.product-modal-head{position:sticky;top:0;z-index:2;background:#fff;border-bottom:1px solid var(--border);padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.product-modal-head h2{margin:0;padding:0;border:none;font-size:1.35rem}
+.modal-close-btn{border:none;border-radius:10px;background:#e2e8f0;color:#0f172a;padding:10px 14px;font-weight:900;cursor:pointer}
+.product-form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 14px;padding:18px}
+.product-form-grid .form-group{margin-bottom:0}
+.product-form-grid .wide{grid-column:span 2}
+.form-section-title{grid-column:1/-1;margin:6px 0 0}
+.check-field{display:flex;align-items:center;min-height:46px}
+.check-field label{margin:0}
+.product-modal-actions{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--border);padding:14px 18px;display:grid;grid-template-columns:minmax(180px,260px) minmax(160px,220px) 1fr;gap:10px;align-items:center}
+@media(max-width:900px){
+  .product-modal{padding:8px;align-items:stretch}
+  .product-modal-dialog{max-height:calc(100vh - 16px);border-radius:12px}
+  .product-modal-head{padding:12px}
+  .product-form-grid{grid-template-columns:1fr;padding:12px}
+  .product-form-grid .wide{grid-column:auto}
+  .product-modal-actions{grid-template-columns:1fr;padding:12px}
+}
 .request-detail-item{border:1px solid var(--border);border-radius:10px;background:#fff;padding:10px;margin:8px 0}
 .request-images{display:grid;gap:8px}
 
