@@ -15,7 +15,7 @@ let designState = createEmptyDesignState();
 let dragState = null;
 
 const SIDES = ["front", "back", "leftSleeve", "rightSleeve"];
-const SIDE_LABELS = {front:"Vorderseite", back:"Rueckseite", leftSleeve:"Linker Aermel", rightSleeve:"Rechter Aermel"};
+const SIDE_LABELS = {front:"Vorderseite", back:"Rückseite", leftSleeve:"Linker Ärmel", rightSleeve:"Rechter Ärmel"};
 function createEmptyDesignState(){return {front:[],back:[],leftSleeve:[],rightSleeve:[]};}
 function getSideLabel(side){return SIDE_LABELS[side]||side;}
 function getSideImage(product,side){
@@ -491,12 +491,12 @@ function openConfigurator(index){
 }
 
 function resetConfiguratorPreview(){
-  dropdownTrigger.textContent=filteredProducts.length?"Produkt waehlen":"Keine Produkte";
+  dropdownTrigger.textContent=filteredProducts.length?"Produkt wählen":"Keine Produkte";
   optionsContainer.innerHTML="";
   pImg.removeAttribute("src");
   layer.innerHTML="";
-  cTitle.innerHTML="<strong>Kein Produkt gewaehlt</strong>";
-  cDesc.textContent="Bitte zuerst Kategorie und Produkt auswaehlen.";
+  cTitle.innerHTML="<strong>Kein Produkt gewählt</strong>";
+  cDesc.textContent="Bitte zuerst Kategorie und Produkt auswählen.";
   cPrice.textContent="";
   const colorBox=document.getElementById("color-choice-box");if(colorBox)colorBox.classList.add("hidden");
   const colorList=document.getElementById("color-choice-list");if(colorList)colorList.innerHTML="";
@@ -602,7 +602,7 @@ function updateTotal(){
   const prod=filteredProducts[currentProductIndex];
   const pricing=calculatePricing(getCurrentPricingItems());
   if(box){
-    // Kostenbox immer anzeigen sobald ein Produkt mit Menge gewaehlt wurde.
+    // Kostenbox immer anzeigen, sobald ein Produkt mit Menge gewählt wurde.
     // Rabatt-Zeilen kommen nur in renderPricingHtml, wenn wirklich ein Rabatt aktiv ist.
     if(!prod || (pricing.totalQty||0)<=0){
       box.classList.add("hidden");
@@ -723,7 +723,7 @@ function deleteSelectedItem(){
 }
 
 function resetCurrentSide(){
-  if(!confirm("Alle Designs auf dieser Seite loeschen?"))return;
+  if(!confirm("Alle Designs auf dieser Seite löschen?"))return;
   designState[currentSide]=[];
   selectedItemId=null;
   renderDesignItems();
@@ -862,9 +862,9 @@ function cloneState(obj){return JSON.parse(JSON.stringify(obj));}
 
 function addCurrentProductToRequest(){
   const prod=filteredProducts[currentProductIndex];
-  if(!prod){alert("Bitte Produkt waehlen.");return;}
+  if(!prod){alert("Bitte Produkt wählen.");return;}
   const quantities=getQuantities();
-  if(!quantities.length&&!confirm("Keine Menge ausgewaehlt. Trotzdem hinzufuegen?"))return;
+  if(!quantities.length&&!confirm("Keine Menge ausgewählt. Trotzdem hinzufügen?"))return;
 
   const clonedDesigns=cloneState(designState);
   const selectedColor=getSelectedColorVariant(prod);
@@ -982,7 +982,7 @@ function buildMailText(){
   return "Hallo!\n\nich habe folgende Produkte im Konfigurator zusammengestellt.\n\nPRODUKTE / ANFRAGE:\n"+productText+
     rabattText+
     "KUNDEN-INFOS:\n- Meine E-Mail: "+clientEmail+"\n- Telefon: "+(clientPhone||"-")+"\n- Anmerkung: "+(notes||"-")+"\n\n"+
-    "Die Layoutbilder fuer Vorder- und Rueckseite wurden ueber das Online-Formular mitgesendet.\n\nBitte um Rueckmeldung.\n";
+    "Die Layoutbilder für Vorder- und Rückseite wurden über das Online-Formular mitgesendet.\n\nBitte um Rückmeldung.\n";
 }
 
 function createSideBlob(item,side){
@@ -1042,7 +1042,7 @@ function drawDesign(ctx,canvas,d){
 }
 
 async function downloadAllRequestDesignImages(){
-  if(!requestItems.length){alert("Bitte zuerst ein Produkt zur Anfrage hinzufuegen.");return;}
+  if(!requestItems.length){alert("Bitte zuerst ein Produkt zur Anfrage hinzufügen.");return;}
   let fileIndex=1;
   for(const item of requestItems){
     for(const side of SIDES){
@@ -1097,7 +1097,7 @@ function buildShopifyCartPayload(clientEmail,clientPhone,notes,requestId){
       const size=q.size||"";
       const variantId=findShopifyVariantId(item.shopifyVariantIds,size);
       if(!variantId && !handle){
-        missing.push((item.title||"Produkt")+" / "+(size||"Groesse"));
+        missing.push((item.title||"Produkt")+" / "+(size||"Größe"));
         return;
       }
       items.push({
@@ -1111,7 +1111,7 @@ function buildShopifyCartPayload(clientEmail,clientPhone,notes,requestId){
           "Protex Anfrage":requestId?String(requestId):"gespeichert",
           "Produkt":item.title||"",
           "Farbe":item.color||"",
-          "Groesse":size,
+          "Größe":size,
           "Design":designSummary(item.designs),
           "Druckpositionen":String(countPrintPositions(item)),
           "Kunden E-Mail":clientEmail||"",
@@ -1139,7 +1139,7 @@ async function sendOrder(){
   const notes = document.getElementById("client-notes").value.trim();
   const status = document.getElementById("send-status");
   if(!clientEmail){alert("Bitte E-Mail angeben.");return;}
-  if(!requestItems.length){alert("Bitte zuerst mindestens ein Produkt hinzufuegen.");return;}
+  if(!requestItems.length){alert("Bitte zuerst mindestens ein Produkt hinzufügen.");return;}
   const mailText=buildMailText(),sendBtn=document.getElementById("send-order-btn");
   sendBtn.disabled=true;sendBtn.textContent="Wird gespeichert...";status.textContent="Layouts werden vorbereitet...";
   try{
