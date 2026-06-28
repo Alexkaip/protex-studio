@@ -65,8 +65,18 @@ input[type=file]{width:100%;border:1px dashed #e2e8f0;background:#f8fafc;border-
 .start-category-card:hover .start-category-img img,.start-product-card:hover .start-product-img img{transform:scale(1.55);background:#fff;border-radius:12px;box-shadow:0 18px 42px rgba(15,23,42,.25);position:relative;z-index:30}
 .start-category-img span{font-size:2.3rem}
 .start-category-title,.start-product-name{font-weight:900;font-size:1.05rem;margin-bottom:5px}
+.product-card-badge{display:inline-flex;margin-top:8px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:5px 9px;font-weight:900;font-size:.78rem}
 .start-product-area{margin-top:18px}
 #back-to-products-btn{margin-bottom:10px}
+
+.shop-product-screen{margin-bottom:14px}
+.shop-product-detail{display:grid;grid-template-columns:minmax(280px,460px) 1fr;gap:22px;align-items:start}
+.shop-product-media{background:#f8fafc;border:1px solid var(--border);border-radius:14px;min-height:420px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.shop-product-media img{max-width:100%;max-height:560px;object-fit:contain}
+.shop-product-info h1{text-align:left;margin:4px 0 8px;font-size:2rem}
+.shop-product-kicker{color:var(--muted);font-weight:800;margin-bottom:4px}
+.shop-product-price{color:#16a34a;font-weight:900;font-size:1.3rem;margin:8px 0 14px}
+.shop-product-desc{white-space:pre-line;color:#334155;line-height:1.5;background:#f8fafc;border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:14px}
 
 @media(max-width:900px){
   .category-start h1{font-size:1.55rem;text-align:center}
@@ -74,6 +84,8 @@ input[type=file]{width:100%;border:1px dashed #e2e8f0;background:#f8fafc;border-
   .start-back-btn{max-width:none}
   .start-category-grid,.start-product-grid{grid-template-columns:1fr 1fr;gap:10px}
   .start-category-img,.start-product-img{height:120px}
+  .shop-product-detail{grid-template-columns:1fr}
+  .shop-product-media{min-height:260px}
 }
 @media(max-width:520px){.start-category-grid,.start-product-grid{grid-template-columns:1fr}}
 
