@@ -1037,13 +1037,29 @@ function pick(row,headers,names,fallbackIndex){
   return fallbackIndex>=0 ? (row[fallbackIndex]||"") : "";
 }
 
+function hasAnyHeader(headers,names){
+  return names.some(name=>headers.includes(normalizeHeader(name)));
+}
+
+function netToGrossPrice(netValue,taxRateValue){
+  const net=parseMoneyValue(netValue);
+  if(net==null)return "";
+  const taxRate=parseMoneyValue(taxRateValue);
+  const factor=taxRate!=null&&taxRate>0 ? 1+(taxRate/100) : 1;
+  return net*factor;
+}
+
 async function importCsv(e){
   const file=e.target.files[0];if(!file)return;
   const text=await file.text();
   const parsed=parseCsv(text);
   if(parsed.length<2){alert("Keine Produkte gefunden.");e.target.value="";return}
   const headers=parsed[0].map(normalizeHeader);
-  const isSevdeskArticleCsv=(headers.includes(normalizeHeader("Artikelnumer"))||headers.includes(normalizeHeader("Artikelnummer")))&&headers.includes(normalizeHeader("Umsatzsteuer"))&&headers.includes(normalizeHeader("Einkaufspreis"))&&headers.includes(normalizeHeader("Verkaufspreis"));
+  const articleNumberHeaders=["sevDeskArtikelnummer","sevDesk Artikelnummer","Artikelnumer","Artikelnummer","Nr.","Nr","Prod.Nr.","ProdNr","Artikel-Nr.","Art.-Nr."];
+  const grossPriceHeaders=["Preis (Brutto)","Preis Brutto","Bruttopreis","VK Brutto","Verkaufspreis Brutto"];
+  const netPriceHeaders=["Verkaufspreis","Preis (Netto)","Preis Netto","Nettopreis","VK Netto"];
+  const taxHeaders=["sevDeskUmsatzsteuer","Umsatzsteuer","MwSt","Mehrwertsteuer","Steuersatz"];
+  const isSevdeskArticleCsv=hasAnyHeader(headers,articleNumberHeaders)&&(hasAnyHeader(headers,grossPriceHeaders)||hasAnyHeader(headers,netPriceHeaders)||hasAnyHeader(headers,taxHeaders));
   const hasSubcategory=headers.includes(normalizeHeader("Unterkategorie"));
   const hasShopifyVariantIds=headers.includes(normalizeHeader("ShopifyVariantIDs"));
   const hasPrintCost=headers.includes(normalizeHeader("DruckkostenProDruck"))||headers.includes(normalizeHeader("Druckkosten"))||headers.includes(normalizeHeader("Druckkosten pro Druck"));
@@ -1052,32 +1068,38 @@ async function importCsv(e){
   const printCostOffset=hasPrintCost?1:0;
   const shopifyOffset=hasShopifyVariantIds?1:0;
   const personalizableOffset=hasPersonalizable?1:0;
-  const rows=[];
-  const existingRes=await supabaseClient.from("products").select("name,category,subcategory,sevdesk_article_number");
+  const insertRows=[];
+  const updateJobs=[];
+  const existingRes=await supabaseClient.from("products").select("*");
   if(existingRes.error){alert(existingRes.error.message);e.target.value="";return}
   const keyFor=(name,category,subcategory)=>String(name||"").trim().toLowerCase()+"|"+String(category||"").trim().toLowerCase()+"|"+String(subcategory||"").trim().toLowerCase();
-  const existingKeys=new Set((existingRes.data||[]).map(r=>keyFor(r.name,r.category,r.subcategory)));
-  const existingArticleNumbers=new Map((existingRes.data||[]).map(r=>[normalizeArticleNumber(r.sevdesk_article_number),r.name]).filter(([number])=>number));
+  const existingProducts=(existingRes.data||[]).map(productFromRow);
+  const existingByKey=new Map(existingProducts.map(p=>[keyFor(p.title,p.category,p.subcategory),p]));
+  const existingByArticleNumber=new Map(existingProducts.map(p=>[normalizeArticleNumber(p.sevdeskArticleNumber),p]).filter(([number])=>number));
   const importKeys=new Set();
   const importArticleNumbers=new Map();
-  let skipped=0;
+  let skipped=0,updated=0,inserted=0;
   for(let i=1;i<parsed.length;i++){
     const c=parsed[i];
     const title=pick(c,headers,["Produktname","Name"],0);
     const productTypeRaw=pick(c,headers,["Produkttyp","ProduktTyp","Produkt Typ","Typ"],-1);
     const printRuleRaw=pick(c,headers,["DruckRegel","Druck Regel","PrintRule"],-1);
     if(!title)continue;
-    const subcategory=pick(c,headers,["Unterkategorie","Subkategorie","Subcategory"],hasSubcategory?2:-1);
-    const descRaw=pick(c,headers,["Beschreibung"],2+offset);
+    const subcategory=isSevdeskArticleCsv ? "" : pick(c,headers,["Unterkategorie","Subkategorie","Subcategory"],hasSubcategory?2:-1);
+    const descRaw=pick(c,headers,["Beschreibung","Artikelbeschreibung","Beschreibung (Artikel)","Kurzbeschreibung","Langbeschreibung","Text","Beschreibungstext"],isSevdeskArticleCsv?-1:2+offset);
     if(title.trim().toLowerCase()==="t-shirt premium" && descRaw.trim().toLowerCase()==="100% baumwolle")continue;
     const category=isSevdeskArticleCsv ? "" : pick(c,headers,["Kategorie"],1);
     const productKey=keyFor(title,category,subcategory);
-    if(existingKeys.has(productKey)||importKeys.has(productKey)){skipped++;continue}
-    importKeys.add(productKey);
     const printCostRaw=pick(c,headers,["DruckkostenProDruck","Druckkosten","Druckkosten pro Druck"],hasPrintCost?4+offset:-1);
     const shopifyVariantIds=parseShopifyVariantIds(pick(c,headers,["ShopifyVariantIDs","Shopify Variant IDs","Shopify Varianten IDs"],hasShopifyVariantIds?5+offset+printCostOffset:-1));
     const activeRaw=pick(c,headers,["Aktiv"],5+offset+printCostOffset+shopifyOffset);
     const personalizableRaw=pick(c,headers,["Personalisierbar","Konfigurator","Im Konfigurator","Nur Shop"],hasPersonalizable?6+offset+printCostOffset+shopifyOffset:-1);
+    const taxRaw=pick(c,headers,taxHeaders,-1)||"20,00";
+    const grossPriceRaw=pick(c,headers,grossPriceHeaders,-1);
+    const netPriceRaw=pick(c,headers,netPriceHeaders,isSevdeskArticleCsv?7:-1);
+    const importPrice=isSevdeskArticleCsv
+      ? (grossPriceRaw || formatSevdeskDecimal(netToGrossPrice(netPriceRaw,taxRaw),""))
+      : pick(c,headers,["Preis","Verkaufspreis"],3+offset);
     const product={
       title:title,
       productType:isSevdeskArticleCsv?"shop_only":normalizeProductType(productTypeRaw),
@@ -1085,37 +1107,84 @@ async function importCsv(e){
       category:category,
       subcategory:subcategory,
       desc:descRaw,
-      price:isSevdeskArticleCsv?pick(c,headers,["Verkaufspreis"],7):pick(c,headers,["Preis","Verkaufspreis"],3+offset),
-      sevdeskArticleNumber:pick(c,headers,["sevDeskArtikelnummer","sevDesk Artikelnummer","Artikelnumer","Artikelnummer"],-1),
+      price:importPrice,
+      sevdeskArticleNumber:pick(c,headers,articleNumberHeaders,-1),
       sevdeskUnit:pick(c,headers,["sevDeskEinheit","Einheit"],-1)||"Stk",
       sevdeskStock:pick(c,headers,["sevDeskBestand","Bestand"],-1)||"0,00",
       sevdeskStockEnabled:["true","1","ja","yes"].includes(String(pick(c,headers,["sevDeskBestandAktiv","Bestand aktiviert"],-1)).toLowerCase()),
-      sevdeskTaxRate:pick(c,headers,["sevDeskUmsatzsteuer","Umsatzsteuer"],-1)||"20,00",
-      sevdeskPurchasePrice:pick(c,headers,["sevDeskEinkaufspreis","Einkaufspreis"],-1),
-      sevdeskCategory:(isSevdeskArticleCsv?pick(c,headers,["Kategorie"],8):pick(c,headers,["sevDeskKategorie"],-1))||"Standard",
-      printCostPerPosition:printCostRaw,
-      sizes:splitList(pick(c,headers,["Groessen","Groessen"],4+offset).replaceAll("|",",")),
+      sevdeskTaxRate:taxRaw,
+      sevdeskPurchasePrice:pick(c,headers,["sevDeskEinkaufspreis","Einkaufspreis","Einkaufspreis Netto","EK","EK Netto"],-1),
+      sevdeskCategory:(isSevdeskArticleCsv?pick(c,headers,["Kategorie","Artikelkategorie"],8):pick(c,headers,["sevDeskKategorie"],-1))||"Standard",
+      printCostPerPosition:isSevdeskArticleCsv?"":printCostRaw,
+      sizes:isSevdeskArticleCsv?[]:splitList(pick(c,headers,["Groessen","Groessen"],4+offset).replaceAll("|",",")),
       shopifyVariantIds:shopifyVariantIds,
       active:isSevdeskArticleCsv?true:(!activeRaw || !["false","0","nein","no","inaktiv"].includes(String(activeRaw).toLowerCase())),
       personalizable:isSevdeskArticleCsv?false:(!personalizableRaw || !["false","0","nein","no","nur shop","shop","shopify"].includes(String(personalizableRaw).toLowerCase())),
-      imgFront:pick(c,headers,["BildVorderseite","Bild vorne","Vorderseite","BildVorne"],6+offset+printCostOffset+shopifyOffset+personalizableOffset),
-      imgBack:pick(c,headers,["BildRueckseite","BildRueckseite","Bild hinten","Rueckseite","Rueckseite","BildHinten"],7+offset+printCostOffset+shopifyOffset+personalizableOffset),
-      imgLeftSleeve:pick(c,headers,["BildLinkerAermel","BildLinkerAermel","Linker Aermel","Linker Aermel"],8+offset+printCostOffset+shopifyOffset+personalizableOffset),
-      imgRightSleeve:pick(c,headers,["BildRechterAermel","BildRechterAermel","Rechter Aermel","Rechter Aermel"],9+offset+printCostOffset+shopifyOffset+personalizableOffset)
+      imgFront:pick(c,headers,["BildVorderseite","Bild vorne","Vorderseite","BildVorne"],isSevdeskArticleCsv?-1:6+offset+printCostOffset+shopifyOffset+personalizableOffset),
+      imgBack:pick(c,headers,["BildRueckseite","BildRueckseite","Bild hinten","Rueckseite","Rueckseite","BildHinten"],isSevdeskArticleCsv?-1:7+offset+printCostOffset+shopifyOffset+personalizableOffset),
+      imgLeftSleeve:pick(c,headers,["BildLinkerAermel","BildLinkerAermel","Linker Aermel","Linker Aermel"],isSevdeskArticleCsv?-1:8+offset+printCostOffset+shopifyOffset+personalizableOffset),
+      imgRightSleeve:pick(c,headers,["BildRechterAermel","BildRechterAermel","Rechter Aermel","Rechter Aermel"],isSevdeskArticleCsv?-1:9+offset+printCostOffset+shopifyOffset+personalizableOffset)
     };
     const articleNumberKey=normalizeArticleNumber(product.sevdeskArticleNumber);
+    const importKey=articleNumberKey ? "article:"+articleNumberKey : "product:"+productKey;
+    if(importKeys.has(importKey)){skipped++;continue}
+    importKeys.add(importKey);
     if(articleNumberKey){
-      if(existingArticleNumbers.has(articleNumberKey)){skipped++;continue;}
       if(importArticleNumbers.has(articleNumberKey)){skipped++;continue;}
       importArticleNumbers.set(articleNumberKey,product.title);
     }
-    rows.push(rowFromProduct(product));
+    const existingProduct=articleNumberKey ? existingByArticleNumber.get(articleNumberKey) : existingByKey.get(productKey);
+    if(existingProduct){
+      const merged={
+        ...existingProduct,
+        title:product.title||existingProduct.title,
+        desc:product.desc||existingProduct.desc,
+        price:product.price||existingProduct.price,
+        sevdeskArticleNumber:product.sevdeskArticleNumber||existingProduct.sevdeskArticleNumber,
+        sevdeskUnit:product.sevdeskUnit||existingProduct.sevdeskUnit,
+        sevdeskStock:product.sevdeskStock||existingProduct.sevdeskStock,
+        sevdeskStockEnabled:product.sevdeskStockEnabled,
+        sevdeskTaxRate:product.sevdeskTaxRate||existingProduct.sevdeskTaxRate,
+        sevdeskPurchasePrice:product.sevdeskPurchasePrice||existingProduct.sevdeskPurchasePrice,
+        sevdeskCategory:product.sevdeskCategory||existingProduct.sevdeskCategory
+      };
+      if(!isSevdeskArticleCsv){
+        merged.productType=product.productType;
+        merged.printRule=product.printRule;
+        merged.category=product.category;
+        merged.subcategory=product.subcategory;
+        merged.printCostPerPosition=product.printCostPerPosition;
+        merged.sizes=product.sizes;
+        merged.shopifyVariantIds=product.shopifyVariantIds;
+        merged.active=product.active;
+        merged.personalizable=product.personalizable;
+        merged.imgFront=product.imgFront||existingProduct.imgFront;
+        merged.imgBack=product.imgBack||existingProduct.imgBack;
+        merged.imgLeftSleeve=product.imgLeftSleeve||existingProduct.imgLeftSleeve;
+        merged.imgRightSleeve=product.imgRightSleeve||existingProduct.imgRightSleeve;
+      }
+      updateJobs.push({id:existingProduct.id,row:rowFromProduct(merged),category:merged.category});
+      updated++;
+    }else{
+      insertRows.push(rowFromProduct(product));
+      inserted++;
+    }
   }
-  if(!rows.length){alert(skipped?skipped+" vorhandene Produkte uebersprungen. Keine neuen Produkte importiert.":"Keine Produkte gefunden.");e.target.value="";return}
-  const importCats=[...new Set(rows.map(r=>r.category).filter(Boolean))];
+  if(!insertRows.length&&!updateJobs.length){alert(skipped?skipped+" doppelte Zeilen uebersprungen. Keine Produkte importiert oder aktualisiert.":"Keine Produkte gefunden.");e.target.value="";return}
+  const importCats=[...new Set([...insertRows.map(r=>r.category),...updateJobs.map(j=>j.category)].filter(Boolean))];
   for(const name of importCats){await supabaseClient.from("categories").upsert({name},{onConflict:"name"});}
-  const{error}=await supabaseClient.from("products").insert(rows);
-  if(error)alert(error.message);else alert(rows.length+" Produkte importiert."+((skipped>0)?" "+skipped+" vorhandene uebersprungen.":""));
+  let importError=null;
+  if(insertRows.length){
+    const{error}=await supabaseClient.from("products").insert(insertRows);
+    if(error)importError=error;
+  }
+  if(!importError){
+    for(const job of updateJobs){
+      const{error}=await supabaseClient.from("products").update(job.row).eq("id",job.id);
+      if(error){importError=error;break;}
+    }
+  }
+  if(importError)alert(importError.message);else alert(inserted+" Produkte importiert, "+updated+" Produkte aktualisiert."+((skipped>0)?" "+skipped+" doppelte Zeilen uebersprungen.":""));
   e.target.value="";
   await loadAll();
 }
