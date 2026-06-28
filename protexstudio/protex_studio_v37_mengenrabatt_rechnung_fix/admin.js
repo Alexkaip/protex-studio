@@ -42,6 +42,8 @@ function bindEvents(){
   document.getElementById("add-category-btn").addEventListener("click",addCategory);
   const reloadRequests=document.getElementById("reload-requests-btn");
   if(reloadRequests)reloadRequests.addEventListener("click",loadRequests);
+  const toggleRequests=document.getElementById("toggle-requests-btn");
+  if(toggleRequests)toggleRequests.addEventListener("click",()=>scrollToRequests());
   const sevdeskExportBtn=document.getElementById("sevdesk-export-btn");
   if(sevdeskExportBtn)sevdeskExportBtn.addEventListener("click",exportSevdeskCsv);
   const addDiscountRow=document.getElementById("add-discount-row-btn");
@@ -60,8 +62,6 @@ function bindEvents(){
   if(toggleCoupons)toggleCoupons.addEventListener("click",()=>toggleCouponPanel());
   const closeCoupons=document.getElementById("close-coupons-btn");
   if(closeCoupons)closeCoupons.addEventListener("click",()=>toggleCouponPanel(false));
-  const togglePrintCost=document.getElementById("toggle-printcost-btn");
-  if(togglePrintCost)togglePrintCost.addEventListener("click",()=>togglePrintCostPanel());
   const closePrintCost=document.getElementById("close-printcost-btn");
   if(closePrintCost)closePrintCost.addEventListener("click",()=>togglePrintCostPanel(false));
   const savePrintCost=document.getElementById("save-printcost-btn");
@@ -139,13 +139,13 @@ async function updateLoginState(){
     document.getElementById("login-card").classList.add("hidden");
     document.getElementById("admin-area").classList.remove("hidden");
     document.getElementById("logout-btn").classList.remove("hidden");
-    ["toggle-discounts-btn","toggle-coupons-btn","toggle-printcost-btn","toggle-stats-btn"].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.remove("hidden");});
+    ["toggle-requests-btn","toggle-discounts-btn","toggle-coupons-btn","toggle-stats-btn"].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.remove("hidden");});
     await loadAll();
   }else{
     document.getElementById("login-card").classList.remove("hidden");
     document.getElementById("admin-area").classList.add("hidden");
     document.getElementById("logout-btn").classList.add("hidden");
-    ["toggle-discounts-btn","toggle-coupons-btn","toggle-printcost-btn","toggle-stats-btn"].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.add("hidden");});
+    ["toggle-requests-btn","toggle-discounts-btn","toggle-coupons-btn","toggle-stats-btn"].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.add("hidden");});
     ["discount-panel","coupon-panel","printcost-panel","stats-panel"].forEach(id=>{const panel=document.getElementById(id);if(panel)panel.classList.add("hidden");});
   }
 }
@@ -1152,6 +1152,23 @@ function downloadText(text,filename,type){
 }
 
 /* ANFRAGEN */
+function openRequestCount(){
+  return (requests||[]).filter(r=>String(r.status||"Neu").toLowerCase()!=="erledigt").length;
+}
+
+function updateRequestBadge(){
+  const badge=document.getElementById("request-count-badge");
+  if(!badge)return;
+  const count=openRequestCount();
+  badge.textContent=String(count);
+  badge.classList.toggle("hidden",count===0);
+}
+
+function scrollToRequests(){
+  const section=document.getElementById("requests-section");
+  if(section)section.scrollIntoView({behavior:"smooth",block:"start"});
+}
+
 async function loadRequests(){
   const list=document.getElementById("admin-request-list");
   if(!list)return;
@@ -1160,8 +1177,11 @@ async function loadRequests(){
     const{data,error}=await supabaseClient.from("requests").select("*").order("created_at",{ascending:false}).limit(50);
     if(error)throw error;
     requests=data||[];
+    updateRequestBadge();
     renderRequests();
   }catch(err){
+    requests=[];
+    updateRequestBadge();
     list.innerHTML='<div class="notice warn">Anfragen konnten nicht geladen werden. Bitte SQL aus supabase-setup-v18.sql ausfuehren.<br>'+err.message+'</div>';
   }
 }
@@ -1169,6 +1189,7 @@ async function loadRequests(){
 function renderRequests(){
   const list=document.getElementById("admin-request-list");
   const detail=document.getElementById("admin-request-detail");
+  updateRequestBadge();
   list.innerHTML="";
   if(detail)detail.innerHTML='<div class="sub">Anfrage anklicken fuer Details.</div>';
   if(!requests.length){list.innerHTML='<div class="sub">Noch keine Anfragen vorhanden.</div>';return}

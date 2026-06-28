@@ -157,6 +157,7 @@ input[type=file]{width:100%;border:1px dashed #e2e8f0;background:#f8fafc;border-
 
 /* V27: Gutscheincodes + Besucherzähler */
 .admin-top-actions{min-width:900px;grid-template-columns:repeat(6,1fr)}
+.top-badge{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;margin-left:8px;border-radius:999px;background:#dc2626;color:#fff;font-size:.8rem;font-weight:900;line-height:1}
 .coupon-settings-list{display:grid;gap:8px;margin:12px 0}
 .coupon-settings-row{display:grid;grid-template-columns:auto 160px auto 120px 90px 44px;gap:8px;align-items:center;background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:8px}
 .coupon-settings-row label{margin:0;font-size:.85rem;white-space:nowrap}
