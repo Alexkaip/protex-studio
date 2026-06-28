@@ -7,6 +7,7 @@ let subcategories = [];
 let filteredProducts = [];
 let currentProductIndex = 0;
 let currentShopProductIndex = -1;
+let currentShopColorIndex = -1;
 let selectedCategory = "";
 let selectedSubcategory = "";
 let currentSide = "front";
@@ -41,8 +42,17 @@ function getSelectedColorVariant(product){
   return selectedColorIndex>=0 ? variants[selectedColorIndex] : null;
 }
 
+function getSelectedShopColorVariant(product){
+  const variants=getColorVariants(product);
+  return currentShopColorIndex>=0 ? variants[currentShopColorIndex] : null;
+}
+
 function getProductPreviewImage(product){
   return getColorVariants(product)[0]?.images?.front || product?.imgFront || "";
+}
+
+function getShopProductPreviewImage(product){
+  return getSelectedShopColorVariant(product)?.images?.front || getProductPreviewImage(product);
 }
 
 function getCurrentProductImages(product){
@@ -527,18 +537,51 @@ function openShopProduct(index){
   const p=filteredProducts[index];
   if(!p||!shopProductScreen)return;
   currentShopProductIndex=index;
+  currentShopColorIndex=getColorVariants(p).length?0:-1;
   categoryStart.classList.add("hidden");
   configuratorScreen.classList.add("hidden");
   shopProductScreen.classList.remove("hidden");
-  document.getElementById("shop-product-img").src=getProductPreviewImage(p);
+  document.getElementById("shop-product-img").src=getShopProductPreviewImage(p);
   document.getElementById("shop-product-title").textContent=p.title||"Produkt";
   document.getElementById("shop-product-category").textContent=categoryText(p);
   document.getElementById("shop-product-price").textContent="EUR "+formatPrice(p.price);
   document.getElementById("shop-product-desc").textContent=p.desc||"";
   const status=document.getElementById("shop-cart-status");
   if(status)status.textContent="";
+  renderShopColorChoices(p);
   buildShopSizeGrid(p);
   window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function renderShopColorChoices(product){
+  const box=document.getElementById("shop-color-choice-box");
+  const list=document.getElementById("shop-color-choice-list");
+  if(!box||!list)return;
+  const variants=getColorVariants(product);
+  list.innerHTML="";
+  if(!variants.length){
+    box.classList.add("hidden");
+    return;
+  }
+  box.classList.remove("hidden");
+  variants.forEach((variant,index)=>{
+    const btn=document.createElement("button");
+    btn.type="button";
+    btn.className="color-choice-btn"+(index===currentShopColorIndex?" active":"");
+    btn.innerHTML='<span class="color-dot"></span><span></span>';
+    btn.querySelector(".color-dot").style.background=variant.hex||"#111111";
+    btn.querySelector("span:last-child").textContent=variant.name||("Farbe "+(index+1));
+    btn.addEventListener("click",()=>{
+      currentShopColorIndex=index;
+      const img=document.getElementById("shop-product-img");
+      if(img)img.src=getShopProductPreviewImage(product);
+      const status=document.getElementById("shop-cart-status");
+      if(status)status.textContent="";
+      renderShopColorChoices(product);
+      buildShopSizeGrid(product);
+    });
+    list.appendChild(btn);
+  });
 }
 
 function buildShopSizeGrid(p){
@@ -554,7 +597,6 @@ function buildShopSizeGrid(p){
     row.querySelector("label").textContent=size||"Menge";
     grid.appendChild(row);
   });
-  window.addEventListener("message",handleShopifyCartStatus);
 }
 
 function handleShopifyCartStatus(event){
@@ -595,8 +637,11 @@ function buildDirectShopifyPayload(product,quantities){
   const missing=[];
   const handle=slugify(product.title||"");
   const hasVariantIds=product.shopifyVariantIds&&typeof product.shopifyVariantIds==="object"&&Object.keys(product.shopifyVariantIds).length>0;
+  const selectedColor=getSelectedShopColorVariant(product);
+  const selectedColorName=selectedColor?.name||"";
   quantities.forEach(q=>{
     const size=hasVariantIds?(q.size||""):"";
+    const variantOption=selectedColorName||size;
     const variantId=findShopifyVariantId(product.shopifyVariantIds,size);
     if(!variantId && !handle){
       missing.push((product.title||"Produkt")+" / "+(size||"Größe"));
@@ -607,12 +652,15 @@ function buildDirectShopifyPayload(product,quantities){
       title:product.title||"",
       handle:handle,
       size:size,
-      sku:hasVariantIds&&size?handle+"-"+slugify(size):handle,
-      allowFirstVariant:!hasVariantIds,
+      color:selectedColorName,
+      variantOption:variantOption,
+      sku:variantOption?handle+"-"+slugify(variantOption):handle,
+      allowFirstVariant:!hasVariantIds && !variantOption,
       shopOnly:true,
       quantity:q.qty,
       properties:{
         "Produkt":product.title||"",
+        "Farbe":selectedColorName,
         "Größe":size||"",
         "Kategorie":categoryText(product)
       }

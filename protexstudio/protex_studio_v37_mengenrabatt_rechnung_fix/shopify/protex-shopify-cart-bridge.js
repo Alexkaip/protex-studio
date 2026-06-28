@@ -91,23 +91,25 @@ function findMappedProduct(item) {
 async function resolveVariantId(item) {
   if (item.id) return item.id;
 
+  const wantedOption = normalizeProtexText(item.variantOption || item.color || item.properties?.Farbe || item.size || "");
+  const wantedSize = normalizeProtexValue(item.size);
+  const wantedSku = normalizeProtexValue(item.sku);
+  const wantedPrice = normalizeProtexNumber(item.printFeePrice);
   const mappedProduct = findMappedProduct(item);
-  if ((item.allowFirstVariant === true || item.shopOnly === true) && mappedProduct?.firstVariantId) {
+  if (item.allowFirstVariant === true && !wantedOption && !wantedSize && !wantedSku && mappedProduct?.firstVariantId) {
     return mappedProduct.firstVariantId;
   }
 
-  const product = await loadShopifyProduct(item.handle) || await searchShopifyProduct(item);
+  const productHandle = mappedProduct?.handle || item.handle;
+  const product = await loadShopifyProduct(productHandle) || await searchShopifyProduct(item);
   if (!product || !Array.isArray(product.variants)) return "";
 
-  if (item.allowFirstVariant === true || item.shopOnly === true) {
+  if ((item.allowFirstVariant === true || item.shopOnly === true) && !wantedOption && !wantedSize && !wantedSku && wantedPrice <= 0) {
     const firstAvailable = product.variants.find((variant) => variant.available !== false) || product.variants[0];
     return firstAvailable ? firstAvailable.id : "";
   }
 
-  const wantedSize = normalizeProtexValue(item.size);
-  const wantedSku = normalizeProtexValue(item.sku);
-  const wantedPrice = normalizeProtexNumber(item.printFeePrice);
-  if (!wantedSize && !wantedSku && wantedPrice <= 0) {
+  if (!wantedOption && !wantedSize && !wantedSku && wantedPrice <= 0) {
     const firstAvailable = product.variants.find((variant) => variant.available !== false) || product.variants[0];
     return firstAvailable ? firstAvailable.id : "";
   }
@@ -116,14 +118,25 @@ async function resolveVariantId(item) {
     const optionValues = [variant.option1, variant.option2, variant.option3, variant.title]
       .map(normalizeProtexValue)
       .filter(Boolean);
+    const optionTexts = [variant.option1, variant.option2, variant.option3, variant.title]
+      .map(normalizeProtexText)
+      .filter(Boolean);
     const sku = normalizeProtexValue(variant.sku);
     const variantPrice = normalizeProtexNumber(variant.price);
-    return optionValues.includes(wantedSize) ||
+    return (wantedOption && optionTexts.includes(wantedOption)) ||
+      optionValues.includes(wantedSize) ||
       (wantedSku && sku === wantedSku) ||
       (wantedPrice > 0 && Math.abs(variantPrice - wantedPrice) < 0.01);
   });
 
-  return variant ? variant.id : "";
+  if (variant) return variant.id;
+
+  if (item.shopOnly === true) {
+    const firstAvailable = product.variants.find((variant) => variant.available !== false) || product.variants[0];
+    return firstAvailable ? firstAvailable.id : "";
+  }
+
+  return "";
 }
 
 function addPrintFeeItem(items, payload) {
@@ -201,14 +214,14 @@ window.addEventListener("message", async (event) => {
     for (const rawItem of rawItems) {
       const variantId = await resolveVariantId(rawItem);
       if (!variantId) {
-        const sizeLabel = rawItem.size || rawItem.properties?.Groesse || rawItem.properties?.["Größe"] || "";
+        const sizeLabel = rawItem.variantOption || rawItem.color || rawItem.size || rawItem.properties?.Farbe || rawItem.properties?.Groesse || rawItem.properties?.["Größe"] || "";
         missing.push(`${rawItem.title || rawItem.properties?.Produkt || rawItem.handle || "Produkt"}${sizeLabel ? " / " + sizeLabel : ""}`);
         continue;
       }
       items.push({
         id: variantId,
         quantity: rawItem.quantity || 1,
-        label: `${rawItem.title || rawItem.properties?.Produkt || rawItem.handle || "Produkt"}${rawItem.size || rawItem.properties?.Groesse || rawItem.properties?.["Größe"] ? " / " + (rawItem.size || rawItem.properties?.Groesse || rawItem.properties?.["Größe"]) : ""}`,
+        label: `${rawItem.title || rawItem.properties?.Produkt || rawItem.handle || "Produkt"}${rawItem.variantOption || rawItem.color || rawItem.size || rawItem.properties?.Farbe || rawItem.properties?.Groesse || rawItem.properties?.["Größe"] ? " / " + (rawItem.variantOption || rawItem.color || rawItem.size || rawItem.properties?.Farbe || rawItem.properties?.Groesse || rawItem.properties?.["Größe"]) : ""}`,
         properties: rawItem.properties || {}
       });
     }
