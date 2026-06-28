@@ -883,13 +883,14 @@ function setValue(id,value){
 }
 
 function emptyColorVariant(){
-  return {name:"",hex:"#111111",images:{front:"",back:"",leftSleeve:"",rightSleeve:""}};
+  return {name:"",hex:"#111111",shopifyVariantId:"",images:{front:"",back:"",leftSleeve:"",rightSleeve:""}};
 }
 
 function normalizeColorVariants(rows){
   return (Array.isArray(rows)?rows:[]).map(v=>({
     name:String(v.name||"").trim(),
     hex:String(v.hex||v.color||"#111111").trim()||"#111111",
+    shopifyVariantId:String(v.shopifyVariantId||v.shopify_variant_id||v.variantId||"").trim(),
     images:{
       front:v.images?.front||v.imgFront||"",
       back:v.images?.back||v.imgBack||"",
@@ -915,6 +916,7 @@ function renderColorVariants(){
       '<div class="color-variant-grid">'+
       '<div class="form-group"><label>Farbname</label><input type="text" class="cv-name" placeholder="z.B. Schwarz"></div>'+
       '<div class="form-group"><label>Farbpunkt</label><input type="color" class="cv-hex"></div>'+
+      '<div class="form-group wide"><label>Shopify Variant ID</label><input type="text" class="cv-shopify-id" placeholder="z.B. 10904180228442"><div class="sub">Optional: direkte Shopify-Variante fuer diese Farbe.</div></div>'+
       '<div class="form-group"><label>Vorderseite</label><input type="file" class="cv-front" accept="image/*"><div class="sub cv-front-current"></div></div>'+
       '<div class="form-group"><label>Rueckseite</label><input type="file" class="cv-back" accept="image/*"><div class="sub cv-back-current"></div></div>'+
       '<div class="form-group"><label>Linker Aermel</label><input type="file" class="cv-left" accept="image/*"><div class="sub cv-left-current"></div></div>'+
@@ -922,6 +924,7 @@ function renderColorVariants(){
       '</div>';
     box.querySelector(".cv-name").value=variant.name||"";
     box.querySelector(".cv-hex").value=variant.hex||"#111111";
+    box.querySelector(".cv-shopify-id").value=variant.shopifyVariantId||"";
     box.querySelector(".cv-front-current").textContent=variant.images?.front?"Bild gespeichert":"";
     box.querySelector(".cv-back-current").textContent=variant.images?.back?"Bild gespeichert":"";
     box.querySelector(".cv-left-current").textContent=variant.images?.leftSleeve?"Bild gespeichert":"";
@@ -945,6 +948,7 @@ async function collectColorVariantsForSave(){
     const variant={
       name:card.querySelector(".cv-name")?.value.trim()||"",
       hex:card.querySelector(".cv-hex")?.value||"#111111",
+      shopifyVariantId:card.querySelector(".cv-shopify-id")?.value.trim()||old.shopifyVariantId||"",
       images:{...(old.images||{})}
     };
     const front=card.querySelector(".cv-front")?.files[0];
@@ -955,7 +959,7 @@ async function collectColorVariantsForSave(){
     if(back)variant.images.back=await uploadFile(back,"color-back");
     if(left)variant.images.leftSleeve=await uploadFile(left,"color-left");
     if(right)variant.images.rightSleeve=await uploadFile(right,"color-right");
-    if(variant.name||variant.images.front||variant.images.back||variant.images.leftSleeve||variant.images.rightSleeve)rows.push(variant);
+    if(variant.name||variant.shopifyVariantId||variant.images.front||variant.images.back||variant.images.leftSleeve||variant.images.rightSleeve)rows.push(variant);
   }
   return normalizeColorVariants(rows);
 }

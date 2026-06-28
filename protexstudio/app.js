@@ -34,7 +34,9 @@ function getSideImage(product,side){
 function sideHasImage(product,side){return !!getSideImage(product,side);}
 
 function getColorVariants(product){
-  return Array.isArray(product?.colorVariants)?product.colorVariants.filter(v=>v.name||v.images?.front):[];
+  return Array.isArray(product?.colorVariants)
+    ? product.colorVariants.map(v=>({...v,shopifyVariantId:String(v.shopifyVariantId||v.shopify_variant_id||v.variantId||"").trim()})).filter(v=>v.name||v.shopifyVariantId||v.images?.front)
+    : [];
 }
 
 function getSelectedColorVariant(product){
@@ -642,7 +644,7 @@ function buildDirectShopifyPayload(product,quantities){
   quantities.forEach(q=>{
     const size=hasSizeVariantIds?(q.size||""):"";
     const variantOption=selectedColorName||size;
-    const variantId=findShopifyVariantId(product.shopifyVariantIds,variantOption)||findShopifyVariantId(product.shopifyVariantIds,size);
+    const variantId=String(selectedColor?.shopifyVariantId||"").trim()||findShopifyVariantId(product.shopifyVariantIds,variantOption)||findShopifyVariantId(product.shopifyVariantIds,size);
     if(!variantId && !handle){
       missing.push((product.title||"Produkt")+" / "+(size||"Größe"));
       return;
