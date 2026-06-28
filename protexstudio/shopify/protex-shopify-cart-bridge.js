@@ -12,10 +12,25 @@ function normalizeProtexNumber(value) {
   return Number.isFinite(number) ? number : 0;
 }
 
+function notifyProtexFrame(source, status, message) {
+  if (!source || typeof source.postMessage !== "function") return;
+  source.postMessage({ type: "PROTEX_CART_STATUS", status, message: message || "" }, "*");
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function loadShopifyProduct(handle) {
   const cleanHandle = String(handle || "").trim();
   if (!cleanHandle) return null;
-  const response = await fetch(`/products/${encodeURIComponent(cleanHandle)}.js`, {
+  const response = await fetchWithTimeout(`/products/${encodeURIComponent(cleanHandle)}.js`, {
     headers: { "Accept": "application/json" }
   });
   if (!response.ok) return null;
@@ -33,7 +48,7 @@ function getHandleFromProductResult(product) {
 async function searchShopifyProduct(item) {
   const query = String(item.title || item.properties?.Produkt || item.handle || "").trim();
   if (!query) return null;
-  const response = await fetch(`/search/suggest.json?q=${encodeURIComponent(query)}&resources[type]=product&resources[limit]=8`, {
+  const response = await fetchWithTimeout(`/search/suggest.json?q=${encodeURIComponent(query)}&resources[type]=product&resources[limit]=8`, {
     headers: { "Accept": "application/json" }
   });
   if (!response.ok) return null;
@@ -113,7 +128,7 @@ async function addCartItem(item) {
     throw new Error((item.label || item.properties?.Produkt || item.handle || "Produkt") + ": keine passende Shopify Variante gefunden");
   }
 
-  const response = await fetch("/cart/add.js", {
+  const response = await fetchWithTimeout("/cart/add.js", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -142,6 +157,7 @@ window.addEventListener("message", async (event) => {
     : (payload.variantId ? [{ id: payload.variantId, quantity: payload.quantity || 1, properties: payload.properties || {} }] : []);
 
   if (!rawItems.length) {
+    notifyProtexFrame(event.source, "error", "Keine Produkte fuer den Warenkorb gefunden.");
     alert("Keine Produkte fuer den Warenkorb gefunden.");
     return;
   }
@@ -168,7 +184,9 @@ window.addEventListener("message", async (event) => {
     addPrintFeeItem(items, payload);
 
     if (!items.length) {
-      alert("Shopify konnte keine passende Variante finden: " + missing.join(", "));
+      const msg = "Shopify konnte keine passende Variante finden: " + missing.join(", ");
+      notifyProtexFrame(event.source, "error", msg);
+      alert(msg);
       return;
     }
 
@@ -176,9 +194,12 @@ window.addEventListener("message", async (event) => {
       await addCartItem(item);
     }
 
+    notifyProtexFrame(event.source, "success", "Produkt wurde in den Warenkorb gelegt.");
     window.location.href = "/cart";
   } catch (error) {
-    alert("Produkt konnte nicht in den Shopify Warenkorb gelegt werden: " + error.message);
+    const msg = "Produkt konnte nicht in den Shopify Warenkorb gelegt werden: " + error.message;
+    notifyProtexFrame(event.source, "error", msg);
+    alert(msg);
   }
 });
 

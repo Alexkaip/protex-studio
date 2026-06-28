@@ -15,6 +15,7 @@ let requestItems = [];
 let selectedItemId = null;
 let designState = createEmptyDesignState();
 let dragState = null;
+let shopifyCartStatusTimer = null;
 
 const SIDES = ["front", "back", "leftSleeve", "rightSleeve"];
 const SIDE_LABELS = {front:"Vorderseite", back:"Rückseite", leftSleeve:"Linker Ärmel", rightSleeve:"Rechter Ärmel"};
@@ -553,6 +554,34 @@ function buildShopSizeGrid(p){
     row.querySelector("label").textContent=size||"Menge";
     grid.appendChild(row);
   });
+  window.addEventListener("message",handleShopifyCartStatus);
+}
+
+function handleShopifyCartStatus(event){
+  const data=event.data||{};
+  if(data.type!=="PROTEX_CART_STATUS")return;
+  if(shopifyCartStatusTimer){
+    clearTimeout(shopifyCartStatusTimer);
+    shopifyCartStatusTimer=null;
+  }
+  const shopStatus=document.getElementById("shop-cart-status");
+  const sendStatus=document.getElementById("send-status");
+  const message=data.message||"";
+  if(data.status==="success"){
+    if(shopStatus)shopStatus.textContent=message||"Produkt wurde in den Warenkorb gelegt.";
+    if(sendStatus)sendStatus.textContent=message||"Produkt wurde in den Warenkorb gelegt.";
+    return;
+  }
+  if(shopStatus)shopStatus.textContent=message||"Shopify konnte den Artikel nicht in den Warenkorb legen.";
+  if(sendStatus)sendStatus.textContent=message||"Shopify konnte den Artikel nicht in den Warenkorb legen.";
+}
+
+function waitForShopifyCartStatus(statusEl){
+  if(shopifyCartStatusTimer)clearTimeout(shopifyCartStatusTimer);
+  shopifyCartStatusTimer=setTimeout(()=>{
+    if(statusEl)statusEl.textContent="Keine Rueckmeldung von Shopify. Bitte pruefen, ob die neue Datei protex-shopify-cart-bridge.js in Shopify gespeichert ist.";
+    shopifyCartStatusTimer=null;
+  },15000);
 }
 
 function getShopQuantities(){
@@ -604,6 +633,7 @@ function addShopProductToCart(){
     return;
   }
   if(sendToShopifyCart(payload)){
+    waitForShopifyCartStatus(status);
     if(status)status.textContent="Wird an Shopify übergeben...";
   }else{
     if(status)status.textContent="Im Shopify-Shop eingebettet wird der Artikel direkt in den Warenkorb gelegt.";
