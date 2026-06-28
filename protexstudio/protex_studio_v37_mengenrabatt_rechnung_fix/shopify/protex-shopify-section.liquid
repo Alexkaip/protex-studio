@@ -13,6 +13,23 @@
   ></iframe>
 </section>
 
+<script>
+  window.PROTEX_PRINT_FEE_VARIANT_ID = {{ section.settings.print_fee_variant_id | json }};
+  window.PROTEX_PRINT_FEE_HANDLE = {{ section.settings.print_fee_handle | json }};
+  window.PROTEX_PRODUCT_MAP = [
+    {% assign protex_product_source = section.settings.product_source_collection %}
+    {% if protex_product_source == blank %}
+      {% assign protex_product_source = collections.all %}
+    {% endif %}
+    {% for product in protex_product_source.products limit: 250 %}
+      {
+        title: {{ product.title | json }},
+        handle: {{ product.handle | json }},
+        firstVariantId: {{ product.selected_or_first_available_variant.id | default: product.variants.first.id | json }}
+      }{% unless forloop.last %},{% endunless %}
+    {% endfor %}
+  ];
+</script>
 {{ 'protex-shopify-cart-bridge.js' | asset_url | script_tag }}
 
 <style>
@@ -38,6 +55,23 @@
       "id": "configurator_url",
       "label": "Konfigurator URL",
       "default": "https://protex-studio.vercel.app/"
+    },
+    {
+      "type": "text",
+      "id": "print_fee_variant_id",
+      "label": "Shopify Variant ID fuer Druckkosten",
+      "default": "0"
+    },
+    {
+      "type": "text",
+      "id": "print_fee_handle",
+      "label": "Shopify Produkt-Handle fuer Druckkosten",
+      "default": "dtf-druck"
+    },
+    {
+      "type": "collection",
+      "id": "product_source_collection",
+      "label": "Produkt-Kollektion fuer Warenkorb-Suche"
     }
   ],
   "presets": [
@@ -47,3 +81,4 @@
   ]
 }
 {% endschema %}
+

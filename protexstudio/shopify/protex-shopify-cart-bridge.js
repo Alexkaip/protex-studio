@@ -7,6 +7,18 @@ function normalizeProtexValue(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function normalizeProtexText(value) {
+  return normalizeProtexValue(value)
+    .replace(/\u00e4/g, "ae")
+    .replace(/\u00f6/g, "oe")
+    .replace(/\u00fc/g, "ue")
+    .replace(/\u00df/g, "ss")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 function normalizeProtexNumber(value) {
   const number = Number(String(value || "0").replace(",", "."));
   return Number.isFinite(number) ? number : 0;
@@ -61,8 +73,28 @@ async function searchShopifyProduct(item) {
   return handle ? loadShopifyProduct(handle) : null;
 }
 
+function findMappedProduct(item) {
+  const products = Array.isArray(window.PROTEX_PRODUCT_MAP) ? window.PROTEX_PRODUCT_MAP : [];
+  if (!products.length) return null;
+  const wantedHandle = normalizeProtexText(item.handle);
+  const wantedTitle = normalizeProtexText(item.title || item.properties?.Produkt || "");
+  return products.find((product) => {
+    const productHandle = normalizeProtexText(product.handle);
+    const productTitle = normalizeProtexText(product.title);
+    return (wantedHandle && productHandle === wantedHandle) ||
+      (wantedTitle && productTitle === wantedTitle) ||
+      (wantedTitle && productTitle.includes(wantedTitle)) ||
+      (wantedTitle && wantedTitle.includes(productTitle));
+  }) || null;
+}
+
 async function resolveVariantId(item) {
   if (item.id) return item.id;
+
+  const mappedProduct = findMappedProduct(item);
+  if ((item.allowFirstVariant === true || item.shopOnly === true) && mappedProduct?.firstVariantId) {
+    return mappedProduct.firstVariantId;
+  }
 
   const product = await loadShopifyProduct(item.handle) || await searchShopifyProduct(item);
   if (!product || !Array.isArray(product.variants)) return "";
@@ -184,7 +216,9 @@ window.addEventListener("message", async (event) => {
     addPrintFeeItem(items, payload);
 
     if (!items.length) {
-      const msg = "Shopify konnte keine passende Variante finden: " + missing.join(", ");
+      const hasProductMap = Array.isArray(window.PROTEX_PRODUCT_MAP) && window.PROTEX_PRODUCT_MAP.length > 0;
+      const msg = "Shopify konnte keine passende Variante finden: " + missing.join(", ") +
+        (hasProductMap ? "" : " Bitte in der Protex Konfigurator Section eine Produkt-Kollektion fuer die Warenkorb-Suche auswaehlen.");
       notifyProtexFrame(event.source, "error", msg);
       alert(msg);
       return;
