@@ -1,4 +1,4 @@
-let supabaseClient,session=null,products=[],categories=[],subcategories=[],requests=[],quantityDiscountTiers=[],couponCodes=[],visitorStats={total:0,today:0,last7:0},printCostPerPosition=5,productColorVariants=[];
+let supabaseClient,session=null,products=[],categories=[],subcategories=[],categoryImages={},requests=[],quantityDiscountTiers=[],couponCodes=[],visitorStats={total:0,today:0,last7:0},printCostPerPosition=5,productColorVariants=[];
 const SIDES=["front","back","leftSleeve","rightSleeve"];
 const SIDE_LABELS={front:"Vorderseite",back:"Rueckseite",leftSleeve:"Linker Aermel",rightSleeve:"Rechter Aermel"};
 function sideLabel(side){return SIDE_LABELS[side]||side;}
@@ -184,6 +184,8 @@ async function loadCategories(){
   try{
     const{data,error}=await supabaseClient.from("categories").select("*").order("name",{ascending:true});
     if(error)throw error;
+    categoryImages={};
+    (data||[]).forEach(r=>{if(r.name)categoryImages[r.name]=r.image_url||"";});
     const stored=(data||[]).map(r=>r.name).filter(Boolean);
     const productCats=products.map(p=>p.category).filter(Boolean);
     categories=[...new Set([...stored,...productCats])].sort();
@@ -199,7 +201,7 @@ async function loadSubcategories(){
   try{
     const{data,error}=await supabaseClient.from("subcategories").select("*").order("category",{ascending:true}).order("name",{ascending:true});
     if(error)throw error;
-    const stored=(data||[]).map(r=>({category:r.category||"",name:r.name||""})).filter(r=>r.category&&r.name);
+    const stored=(data||[]).map(r=>({category:r.category||"",name:r.name||"",imageUrl:r.image_url||""})).filter(r=>r.category&&r.name);
     subcategories=uniqueSubcategories([...stored,...productSubs]);
   }catch(err){
     subcategories=uniqueSubcategories(productSubs);
@@ -213,7 +215,9 @@ function uniqueSubcategories(rows){
     const category=String(r.category||"").trim();
     const name=String(r.name||"").trim();
     if(!category||!name)return;
-    map.set(category.toLowerCase()+"|"+name.toLowerCase(),{category,name});
+    const key=category.toLowerCase()+"|"+name.toLowerCase();
+    const current=map.get(key)||{};
+    map.set(key,{category,name,imageUrl:r.imageUrl||current.imageUrl||""});
   });
   return [...map.values()].sort((a,b)=>a.category.localeCompare(b.category)||a.name.localeCompare(b.name));
 }
@@ -267,9 +271,12 @@ function renderSubcategoryList(){
   rows.forEach(s=>{
     const chip=document.createElement("span");
     chip.className="category-chip";
-    chip.innerHTML="<span></span><button type='button'>x</button>";
+    chip.innerHTML=(s.imageUrl?'<img class="chip-img" src="'+s.imageUrl+'" alt="">':"")+"<span></span><button class='chip-image-btn' type='button'>Bild</button><button type='button'>x</button><input class='hidden' type='file' accept='image/*'>";
     chip.querySelector("span").textContent=s.name;
-    chip.querySelector("button").addEventListener("click",()=>removeSubcategory(s.category,s.name));
+    const fileInput=chip.querySelector("input[type=file]");
+    chip.querySelector(".chip-image-btn").addEventListener("click",()=>fileInput.click());
+    fileInput.addEventListener("change",()=>updateSubcategoryImage(s.category,s.name,fileInput.files[0]));
+    chip.querySelector("button:last-of-type").addEventListener("click",()=>removeSubcategory(s.category,s.name));
     list.appendChild(chip);
   });
 }
@@ -281,9 +288,12 @@ function renderCategoryList(){
   categories.forEach(c=>{
     const chip=document.createElement("span");
     chip.className="category-chip";
-    chip.innerHTML="<span></span><button type='button'>x</button>";
+    chip.innerHTML=(categoryImages[c]?'<img class="chip-img" src="'+categoryImages[c]+'" alt="">':"")+"<span></span><button class='chip-image-btn' type='button'>Bild</button><button type='button'>x</button><input class='hidden' type='file' accept='image/*'>";
     chip.querySelector("span").textContent=c;
-    chip.querySelector("button").addEventListener("click",()=>removeCategory(c));
+    const fileInput=chip.querySelector("input[type=file]");
+    chip.querySelector(".chip-image-btn").addEventListener("click",()=>fileInput.click());
+    fileInput.addEventListener("change",()=>updateCategoryImage(c,fileInput.files[0]));
+    chip.querySelector("button:last-of-type").addEventListener("click",()=>removeCategory(c));
     list.appendChild(chip);
   });
 }
@@ -489,16 +499,20 @@ async function addCategory(){
   const input=document.getElementById("new-category");
   const val=input.value.trim();
   if(!val)return;
+  const imageFile=document.getElementById("new-category-image")?.files[0];
+  const imageUrl=imageFile?await uploadFile(imageFile,"category"):(categoryImages[val]||"");
   try{
-    const{error}=await supabaseClient.from("categories").upsert({name:val},{onConflict:"name"});
+    const{error}=await supabaseClient.from("categories").upsert({name:val,image_url:imageUrl},{onConflict:"name"});
     if(error)throw error;
   }catch(err){
     if(!categories.includes(val))categories.push(val);
     showWarning("Kategorie nur lokal hinzugefuegt. Fuer dauerhaftes Speichern bitte Tabelle categories anlegen. "+err.message);
   }
   if(!categories.includes(val))categories.push(val);
+  if(imageUrl)categoryImages[val]=imageUrl;
   categories.sort();
   input.value="";
+  const imgInput=document.getElementById("new-category-image");if(imgInput)imgInput.value="";
   renderCategorySelect();
   renderSubcategoryParentSelect();
   document.getElementById("p-category").value=val;
@@ -506,6 +520,17 @@ async function addCategory(){
   if(subcategoryParent)subcategoryParent.value=val;
   renderSubcategoryList();
   renderCategoryList();
+}
+
+async function updateCategoryImage(name,file){
+  if(!file)return;
+  try{
+    const imageUrl=await uploadFile(file,"category");
+    const{error}=await supabaseClient.from("categories").upsert({name,image_url:imageUrl},{onConflict:"name"});
+    if(error)throw error;
+    categoryImages[name]=imageUrl;
+    renderCategoryList();
+  }catch(err){alert("Kategoriebild konnte nicht gespeichert werden: "+err.message)}
 }
 
 async function removeCategory(cat){
@@ -531,16 +556,30 @@ async function addSubcategory(){
   const name=input.value.trim();
   if(!category){alert("Bitte zuerst eine Hauptkategorie waehlen.");return}
   if(!name)return;
+  const imageFile=document.getElementById("new-subcategory-image")?.files[0];
+  const imageUrl=imageFile?await uploadFile(imageFile,"subcategory"):"";
   try{
-    const{error}=await supabaseClient.from("subcategories").upsert({category,name},{onConflict:"category,name"});
+    const{error}=await supabaseClient.from("subcategories").upsert({category,name,image_url:imageUrl},{onConflict:"category,name"});
     if(error)throw error;
   }catch(err){
     showWarning("Unterkategorie nur lokal hinzugefuegt. Bitte SQL fuer Unterkategorien ausfuehren. "+err.message);
   }
-  subcategories=uniqueSubcategories([...subcategories,{category,name}]);
+  subcategories=uniqueSubcategories([...subcategories,{category,name,imageUrl}]);
   input.value="";
+  const imgInput=document.getElementById("new-subcategory-image");if(imgInput)imgInput.value="";
   renderSubcategoryList();
   renderSubcategoryOptions();
+}
+
+async function updateSubcategoryImage(category,name,file){
+  if(!file)return;
+  try{
+    const imageUrl=await uploadFile(file,"subcategory");
+    const{error}=await supabaseClient.from("subcategories").upsert({category,name,image_url:imageUrl},{onConflict:"category,name"});
+    if(error)throw error;
+    subcategories=uniqueSubcategories(subcategories.map(s=>s.category===category&&s.name===name?{...s,imageUrl}:s));
+    renderSubcategoryList();
+  }catch(err){alert("Unterkategoriebild konnte nicht gespeichert werden: "+err.message)}
 }
 
 async function removeSubcategory(category,name){

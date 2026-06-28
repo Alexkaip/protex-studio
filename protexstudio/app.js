@@ -1,6 +1,8 @@
 let supabaseClient;
 let products = [];
 let categories = [];
+let categoryImages = {};
+let subcategories = [];
 let filteredProducts = [];
 let currentProductIndex = 0;
 let selectedCategory = "";
@@ -258,6 +260,7 @@ async function init(){
     await loadDiscountSettings();
     await loadProducts();
     await loadCategories();
+    await loadSubcategories();
   }catch(err){
     showWarning(err.message);
   }
@@ -325,14 +328,28 @@ async function loadCategories(){
   try{
     const {data,error}=await supabaseClient.from("categories").select("*").order("name",{ascending:true});
     if(error)throw error;
+    categoryImages={};
+    (data||[]).forEach(row=>{if(row.name)categoryImages[row.name]=row.image_url||"";});
     categories=(data||[]).map(row=>row.name).filter(Boolean);
   }catch(err){
     console.warn("Kategorien-Tabelle konnte nicht geladen werden:",err.message);
+    categoryImages={};
     categories=[];
   }
   buildCategoryFilter();
   renderStartCategories();
   resetConfiguratorPreview();
+}
+
+async function loadSubcategories(){
+  try{
+    const {data,error}=await supabaseClient.from("subcategories").select("*").order("category",{ascending:true}).order("name",{ascending:true});
+    if(error)throw error;
+    subcategories=(data||[]).map(row=>({category:row.category||"",name:row.name||"",imageUrl:row.image_url||""})).filter(row=>row.category&&row.name);
+  }catch(err){
+    console.warn("Unterkategorien-Tabelle konnte nicht geladen werden:",err.message);
+    subcategories=[];
+  }
 }
 
 function getCategories(){
@@ -359,22 +376,28 @@ function renderStartCategories(){
     return;
   }
 
-  const allBtn=createCategoryCard("Alle Produkte",products.length,getProductPreviewImage(products[0]),()=>showProductsForCategory(""));
+  const allBtn=createCategoryCard("Alle Produkte",products.length,"",()=>showProductsForCategory(""));
   startCategoryGrid.appendChild(allBtn);
 
   cats.forEach(cat=>{
     const catProducts=products.filter(p=>p.category===cat);
-    const img=getProductPreviewImage(catProducts.find(p=>getProductPreviewImage(p)));
+    const img=categoryImages[cat]||"";
     startCategoryGrid.appendChild(createCategoryCard(cat,catProducts.length,img,()=>showSubcategoriesForCategory(cat)));
   });
 }
 
 function getSubcategoriesForCategory(cat){
-  return [...new Set(products
+  const fromTable=subcategories.filter(s=>s.category===cat).map(s=>s.name);
+  const fromProducts=products
     .filter(p=>p.category===cat && p.subcategory)
     .map(p=>p.subcategory)
-    .filter(Boolean))]
+    .filter(Boolean);
+  return [...new Set([...fromTable,...fromProducts])]
     .sort();
+}
+
+function subcategoryImage(category,name){
+  return subcategories.find(s=>s.category===category&&s.name===name)?.imageUrl||"";
 }
 
 function showSubcategoriesForCategory(cat){
@@ -391,12 +414,12 @@ function showSubcategoriesForCategory(cat){
   startCategoryGrid.classList.remove("hidden");
   startCategoryGrid.innerHTML="";
 
-  const allImg=getProductPreviewImage(catProducts.find(p=>getProductPreviewImage(p)));
+  const allImg=categoryImages[selectedCategory]||"";
   startCategoryGrid.appendChild(createCategoryCard("Alle "+selectedCategory,catProducts.length,allImg,()=>showProductsForCategory(selectedCategory,"")));
 
   subs.forEach(sub=>{
     const subProducts=catProducts.filter(p=>p.subcategory===sub);
-    const img=getProductPreviewImage(subProducts.find(p=>getProductPreviewImage(p)));
+    const img=subcategoryImage(selectedCategory,sub);
     startCategoryGrid.appendChild(createCategoryCard(sub,subProducts.length,img,()=>showProductsForCategory(selectedCategory,sub)));
   });
   window.scrollTo({top:0,behavior:"smooth"});
@@ -452,7 +475,7 @@ function showProductsForCategory(cat,subcat=""){
     card.type="button";
     card.innerHTML='<div class="start-product-img"><img src="'+getProductPreviewImage(p)+'" alt=""></div><div class="start-product-name"></div><div class="sub"></div><div class="dropdown-price"></div>';
     card.querySelector(".start-product-name").textContent=p.title;
-    card.querySelector(".sub").textContent=categoryText(p)+(p.desc?"  -  "+p.desc:"");
+    card.querySelector(".sub").textContent=categoryText(p);
     card.querySelector(".dropdown-price").textContent="EUR "+formatPrice(p.price);
     card.addEventListener("click",()=>openConfigurator(idx));
     startProductGrid.appendChild(card);
