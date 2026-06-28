@@ -544,11 +544,13 @@ function buildShopSizeGrid(p){
   const grid=document.getElementById("shop-size-grid");
   if(!grid)return;
   grid.innerHTML="";
-  (p.sizes?.length?p.sizes:["Standard"]).forEach(size=>{
+  const hasVariantIds=p.shopifyVariantIds&&typeof p.shopifyVariantIds==="object"&&Object.keys(p.shopifyVariantIds).length>0;
+  const sizes=hasVariantIds&&(p.sizes?.length)?p.sizes:[""];
+  sizes.forEach(size=>{
     const row=document.createElement("div");
     row.className="size-row";
     row.innerHTML='<label></label><input type="number" min="0" step="1" inputmode="numeric" value="0" data-size="'+size+'">';
-    row.querySelector("label").textContent=size;
+    row.querySelector("label").textContent=size||"Menge";
     grid.appendChild(row);
   });
 }
@@ -563,22 +565,24 @@ function buildDirectShopifyPayload(product,quantities){
   const items=[];
   const missing=[];
   const handle=slugify(product.title||"");
+  const hasVariantIds=product.shopifyVariantIds&&typeof product.shopifyVariantIds==="object"&&Object.keys(product.shopifyVariantIds).length>0;
   quantities.forEach(q=>{
-    const size=q.size||"";
+    const size=hasVariantIds?(q.size||""):"";
     const variantId=findShopifyVariantId(product.shopifyVariantIds,size);
     if(!variantId && !handle){
-      missing.push((product.title||"Produkt")+" / "+(size||"Groesse"));
+      missing.push((product.title||"Produkt")+" / "+(size||"Größe"));
       return;
     }
     items.push({
       id:variantId||"",
       handle:handle,
       size:size,
-      sku:handle+(size?"-"+slugify(size):""),
+      sku:hasVariantIds&&size?handle+"-"+slugify(size):handle,
+      allowFirstVariant:!hasVariantIds,
       quantity:q.qty,
       properties:{
         "Produkt":product.title||"",
-        "Groesse":size,
+        "Größe":size||"",
         "Kategorie":categoryText(product)
       }
     });
@@ -589,16 +593,16 @@ function buildDirectShopifyPayload(product,quantities){
 function addShopProductToCart(){
   const p=filteredProducts[currentShopProductIndex];
   const status=document.getElementById("shop-cart-status");
-  if(!p){if(status)status.textContent="Bitte Produkt auswaehlen.";return;}
+  if(!p){if(status)status.textContent="Bitte Produkt auswählen.";return;}
   const quantities=getShopQuantities();
   if(!quantities.length){alert("Bitte Menge eingeben.");return;}
   const payload=buildDirectShopifyPayload(p,quantities);
   if(payload.missing.length){
-    alert("Fuer den Shopify Warenkorb fehlen Variant IDs bei: "+payload.missing.join(", "));
+    alert("Für den Shopify Warenkorb fehlen Variant IDs bei: "+payload.missing.join(", "));
     return;
   }
   if(sendToShopifyCart(payload)){
-    if(status)status.textContent="Wird an Shopify uebergeben...";
+    if(status)status.textContent="Wird an Shopify übergeben...";
   }else{
     if(status)status.textContent="Im Shopify-Shop eingebettet wird der Artikel direkt in den Warenkorb gelegt.";
     alert("Dieser Button funktioniert direkt im Shopify-Shop. In der lokalen Vorschau wird nichts in den Warenkorb gelegt.");

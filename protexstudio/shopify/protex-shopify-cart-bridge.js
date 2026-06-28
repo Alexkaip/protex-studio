@@ -28,6 +28,11 @@ async function resolveVariantId(item) {
   const product = await loadShopifyProduct(item.handle);
   if (!product || !Array.isArray(product.variants)) return "";
 
+  if (item.allowFirstVariant === true || item.shopOnly === true) {
+    const firstAvailable = product.variants.find((variant) => variant.available !== false) || product.variants[0];
+    return firstAvailable ? firstAvailable.id : "";
+  }
+
   const wantedSize = normalizeProtexValue(item.size);
   const wantedSku = normalizeProtexValue(item.sku);
   const wantedPrice = normalizeProtexNumber(item.printFeePrice);
@@ -124,13 +129,13 @@ window.addEventListener("message", async (event) => {
     for (const rawItem of rawItems) {
       const variantId = await resolveVariantId(rawItem);
       if (!variantId) {
-        missing.push(`${rawItem.handle || rawItem.properties?.Produkt || "Produkt"} / ${rawItem.size || rawItem.properties?.Groesse || "Groesse"}`);
+        missing.push(`${rawItem.handle || rawItem.properties?.Produkt || "Produkt"}${rawItem.size || rawItem.properties?.Groesse ? " / " + (rawItem.size || rawItem.properties?.Groesse) : ""}`);
         continue;
       }
       items.push({
         id: variantId,
         quantity: rawItem.quantity || 1,
-        label: `${rawItem.properties?.Produkt || rawItem.handle || "Produkt"} / ${rawItem.size || rawItem.properties?.Groesse || "Groesse"}`,
+        label: `${rawItem.properties?.Produkt || rawItem.handle || "Produkt"}${rawItem.size || rawItem.properties?.Groesse ? " / " + (rawItem.size || rawItem.properties?.Groesse) : ""}`,
         properties: rawItem.properties || {}
       });
     }
