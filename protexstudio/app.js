@@ -12,7 +12,7 @@ let designState = createEmptyDesignState();
 let dragState = null;
 
 const SIDES = ["front", "back", "leftSleeve", "rightSleeve"];
-const SIDE_LABELS = {front:"Vorderseite", back:"Rückseite", leftSleeve:"Linker Ärmel", rightSleeve:"Rechter Ärmel"};
+const SIDE_LABELS = {front:"Vorderseite", back:"Rueckseite", leftSleeve:"Linker Aermel", rightSleeve:"Rechter Aermel"};
 function createEmptyDesignState(){return {front:[],back:[],leftSleeve:[],rightSleeve:[]};}
 function getSideLabel(side){return SIDE_LABELS[side]||side;}
 function getSideImage(product,side){
@@ -98,7 +98,7 @@ async function recordVisit(){
     };
     await supabaseClient.from('visits').insert(payload);
   }catch(err){
-    console.warn('Besucherzähler konnte nicht geschrieben werden:',err.message);
+    console.warn('Besucherzaehler konnte nicht geschrieben werden:',err.message);
   }
 }
 
@@ -121,7 +121,7 @@ function getVoucherInfo(){
   if(!code) return {code:"",rate:0,valid:false,message:""};
   const found=couponCodes.find(c=>c.active!==false && c.code===code);
   const rate=found?found.discount_percent:0;
-  return {code,rate,valid:rate>0,message:rate>0?("✓ Gutscheincode gültig (-"+rate+"%)"):("✗ Gutscheincode ungültig")};
+  return {code,rate,valid:rate>0,message:rate>0?("OK Gutscheincode gueltig (-"+rate+"%)"):("X Gutscheincode ungueltig")};
 }
 
 function countPrintPositions(item){
@@ -170,31 +170,31 @@ function calculatePricing(items){
 
 function renderPricingHtml(pricing,title){
   const quantityDiscountLine = pricing.quantityDiscountRate>0
-    ? '<div>Mengenrabatt: <strong>'+pricing.quantityDiscountRate+'%</strong> (-€ '+formatPrice(pricing.quantityDiscountAmount)+')</div>'
+    ? '<div>Mengenrabatt: <strong>'+pricing.quantityDiscountRate+'%</strong> (-EUR '+formatPrice(pricing.quantityDiscountAmount)+')</div>'
     : '';
   const voucherDiscountLine = pricing.voucherDiscountRate>0
-    ? '<div>Gutscheincode-Rabatt: <strong>'+pricing.voucherCode+'</strong> (-'+pricing.voucherDiscountRate+'% / -€ '+formatPrice(pricing.voucherDiscountAmount)+')</div>'
+    ? '<div>Gutscheincode-Rabatt: <strong>'+pricing.voucherCode+'</strong> (-'+pricing.voucherDiscountRate+'% / -EUR '+formatPrice(pricing.voucherDiscountAmount)+')</div>'
     : '';
   return '<div class="pricing-title">'+title+'</div>'+
-    '<div>Gesamtmenge: <strong>'+pricing.totalQty+' Stück</strong></div>'+
-    '<div>Produktpreis: <strong>€ '+formatPrice(pricing.productSubtotal||0)+'</strong></div>'+
+    '<div>Gesamtmenge: <strong>'+pricing.totalQty+' Stueck</strong></div>'+
+    '<div>Produktpreis: <strong>EUR '+formatPrice(pricing.productSubtotal||0)+'</strong></div>'+
     '<div>Druckkosten: <strong>EUR '+formatPrice(pricing.printCostAmount||0)+'</strong> ('+((pricing.totalChargedPrintPositions||pricing.totalPrintPositions||0))+' verrechnete Druck(e) x EUR '+(pricing.printCostMixed?pricing.printCostLabel:formatPrice(pricing.printCostPerPosition||0))+' x Stueckzahl)</div>'+
-    '<div>Warenwert: <strong>€ '+formatPrice(pricing.subtotal)+'</strong></div>'+
+    '<div>Warenwert: <strong>EUR '+formatPrice(pricing.subtotal)+'</strong></div>'+
     quantityDiscountLine+
     voucherDiscountLine+
-    '<div>Zwischensumme: <strong>€ '+formatPrice(pricing.afterQuantity)+'</strong></div>'+
-    '<div class="pricing-final">Endpreis: € '+formatPrice(pricing.total)+'</div>';
+    '<div>Zwischensumme: <strong>EUR '+formatPrice(pricing.afterQuantity)+'</strong></div>'+
+    '<div class="pricing-final">Endpreis: EUR '+formatPrice(pricing.total)+'</div>';
 }
 
 function renderActiveDiscountHtml(pricing){
   let html = '<div class="pricing-title">Aktiver Rabatt</div>';
   if(pricing.quantityDiscountRate>0){
-    html += '<div>Mengenrabatt: <strong>'+pricing.quantityDiscountRate+'%</strong> (-€ '+formatPrice(pricing.quantityDiscountAmount)+')</div>';
+    html += '<div>Mengenrabatt: <strong>'+pricing.quantityDiscountRate+'%</strong> (-EUR '+formatPrice(pricing.quantityDiscountAmount)+')</div>';
   }
   if(pricing.voucherDiscountRate>0){
-    html += '<div>Gutscheincode-Rabatt: <strong>'+pricing.voucherCode+'</strong> (-'+pricing.voucherDiscountRate+'% / -€ '+formatPrice(pricing.voucherDiscountAmount)+')</div>';
+    html += '<div>Gutscheincode-Rabatt: <strong>'+pricing.voucherCode+'</strong> (-'+pricing.voucherDiscountRate+'% / -EUR '+formatPrice(pricing.voucherDiscountAmount)+')</div>';
   }
-  html += '<div class="pricing-final">Endpreis mit Rabatt: € '+formatPrice(pricing.total)+'</div>';
+  html += '<div class="pricing-final">Endpreis mit Rabatt: EUR '+formatPrice(pricing.total)+'</div>';
   return html;
 }
 
@@ -381,7 +381,7 @@ function createCategoryCard(title,count,img,clickHandler){
   const card=document.createElement("button");
   card.className="start-category-card";
   card.type="button";
-  card.innerHTML='<div class="start-category-img">'+(img?'<img src="'+img+'" alt="">':'<span>📦</span>')+'</div><div class="start-category-title"></div><div class="sub"></div>';
+  card.innerHTML='<div class="start-category-img">'+(img?'<img src="'+img+'" alt="">':'<span></span>')+'</div><div class="start-category-title"></div><div class="sub"></div>';
   card.querySelector(".start-category-title").textContent=title;
   card.querySelector(".sub").textContent=count+" Produkt"+(count===1?"":"e");
   card.addEventListener("click",clickHandler);
@@ -427,8 +427,8 @@ function showProductsForCategory(cat,subcat=""){
     card.type="button";
     card.innerHTML='<div class="start-product-img"><img src="'+(p.imgFront||"")+'" alt=""></div><div class="start-product-name"></div><div class="sub"></div><div class="dropdown-price"></div>';
     card.querySelector(".start-product-name").textContent=p.title;
-    card.querySelector(".sub").textContent=categoryText(p)+(p.desc?" · "+p.desc:"");
-    card.querySelector(".dropdown-price").textContent="€ "+formatPrice(p.price);
+    card.querySelector(".sub").textContent=categoryText(p)+(p.desc?"  -  "+p.desc:"");
+    card.querySelector(".dropdown-price").textContent="EUR "+formatPrice(p.price);
     card.addEventListener("click",()=>openConfigurator(idx));
     startProductGrid.appendChild(card);
   });
@@ -443,12 +443,12 @@ function openConfigurator(index){
 }
 
 function resetConfiguratorPreview(){
-  dropdownTrigger.textContent=filteredProducts.length?"Produkt wählen":"Keine Produkte";
+  dropdownTrigger.textContent=filteredProducts.length?"Produkt waehlen":"Keine Produkte";
   optionsContainer.innerHTML="";
   pImg.removeAttribute("src");
   layer.innerHTML="";
-  cTitle.innerHTML="<strong>Kein Produkt gewählt</strong>";
-  cDesc.textContent="Bitte zuerst Kategorie und Produkt auswählen.";
+  cTitle.innerHTML="<strong>Kein Produkt gewaehlt</strong>";
+  cDesc.textContent="Bitte zuerst Kategorie und Produkt auswaehlen.";
   cPrice.textContent="";
   document.getElementById("size-grid").innerHTML="";
   const totalBox=document.getElementById("total-box"); if(totalBox){totalBox.classList.add("hidden"); totalBox.innerHTML="";}
@@ -463,7 +463,7 @@ function buildDropdown(){
   filteredProducts.forEach((p,idx)=>{
     const opt=document.createElement("div");
     opt.className="dropdown-option";
-    opt.innerHTML='<img class="dropdown-thumb" src="'+p.imgFront+'" alt=""><div><div class="dropdown-title"></div><div class="dropdown-price">€ '+formatPrice(p.price)+'</div></div>';
+    opt.innerHTML='<img class="dropdown-thumb" src="'+p.imgFront+'" alt=""><div><div class="dropdown-title"></div><div class="dropdown-price">EUR '+formatPrice(p.price)+'</div></div>';
     opt.querySelector(".dropdown-title").textContent=p.title;
     opt.addEventListener("click",e=>{selectProduct(idx);dropdown.classList.remove("open");e.stopPropagation();});
     optionsContainer.appendChild(opt);
@@ -480,8 +480,8 @@ function selectProduct(index){
   pImg.src=p.imgFront;
   pImg.onload=()=>renderDesignItems();
   cTitle.innerHTML="<strong>"+p.title+"</strong>";
-  cDesc.textContent=(categoryText(p)?categoryText(p)+" · ":"")+(p.desc||"");
-  cPrice.textContent="€ "+formatPrice(p.price);
+  cDesc.textContent=(categoryText(p)?categoryText(p)+"  -  ":"")+(p.desc||"");
+  cPrice.textContent="EUR "+formatPrice(p.price);
   dropdownTrigger.innerHTML='<span style="display:flex;align-items:center;gap:8px;min-width:0;"><img src="'+p.imgFront+'" style="width:26px;height:26px;object-fit:contain;border-radius:4px;background:#f8fafc;"> <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span></span>';
   dropdownTrigger.querySelector("span span").textContent=p.title;
   document.querySelectorAll(".dropdown-option").forEach((opt,idx)=>opt.classList.toggle("active",idx===index));
@@ -520,7 +520,7 @@ function updateTotal(){
   const prod=filteredProducts[currentProductIndex];
   const pricing=calculatePricing(getCurrentPricingItems());
   if(box){
-    // Kostenbox immer anzeigen sobald ein Produkt mit Menge gewählt wurde.
+    // Kostenbox immer anzeigen sobald ein Produkt mit Menge gewaehlt wurde.
     // Rabatt-Zeilen kommen nur in renderPricingHtml, wenn wirklich ein Rabatt aktiv ist.
     if(!prod || (pricing.totalQty||0)<=0){
       box.classList.add("hidden");
@@ -555,7 +555,7 @@ function setSide(side){
     if(btn){
       btn.classList.toggle("active",currentSide===s);
       btn.disabled=!sideHasImage(p,s);
-      btn.title=btn.disabled?"Für diese Seite wurde kein Produktbild hinterlegt":"";
+      btn.title=btn.disabled?"Fuer diese Seite wurde kein Produktbild hinterlegt":"";
     }
   });
 
@@ -641,7 +641,7 @@ function deleteSelectedItem(){
 }
 
 function resetCurrentSide(){
-  if(!confirm("Alle Designs auf dieser Seite löschen?"))return;
+  if(!confirm("Alle Designs auf dieser Seite loeschen?"))return;
   designState[currentSide]=[];
   selectedItemId=null;
   renderDesignItems();
@@ -780,9 +780,9 @@ function cloneState(obj){return JSON.parse(JSON.stringify(obj));}
 
 function addCurrentProductToRequest(){
   const prod=filteredProducts[currentProductIndex];
-  if(!prod){alert("Bitte Produkt wählen.");return;}
+  if(!prod){alert("Bitte Produkt waehlen.");return;}
   const quantities=getQuantities();
-  if(!quantities.length&&!confirm("Keine Menge ausgewählt. Trotzdem hinzufügen?"))return;
+  if(!quantities.length&&!confirm("Keine Menge ausgewaehlt. Trotzdem hinzufuegen?"))return;
 
   const clonedDesigns=cloneState(designState);
   requestItems.push({
@@ -850,7 +850,7 @@ function renderRequestList(){
     const info=document.createElement("div");
     info.innerHTML="<strong></strong><br><span></span>";
     info.querySelector("strong").textContent=item.title;
-    info.querySelector("span").textContent=qty+" · "+designSummary(item.designs);
+    info.querySelector("span").textContent=qty+"  -  "+designSummary(item.designs);
     const btn=document.createElement("button");
     btn.className="remove-request";
     btn.type="button";
@@ -875,29 +875,29 @@ function buildMailText(){
     const totalPrice=totalQty*(Number(String(item.price).replace(",","."))||0);
     productText+=(index+1)+". "+item.title+"\\n"+
       "- Kategorie: "+categoryText(item)+"\\n"+
-      "- Basispreis: € "+item.price+"\\n"+
+      "- Basispreis: EUR "+item.price+"\\n"+
       "- Menge: "+qtyText+"\\n"+
-      "- Gesamt: € "+formatPrice(totalPrice)+"\\n"+
+      "- Gesamt: EUR "+formatPrice(totalPrice)+"\\n"+
       "- Beschreibung: "+(item.desc||"-")+"\\n"+
       "- Design: "+designSummary(item.designs)+"\\n\\n";
   });
   const pricing=calculatePricing(requestItems);
   const rabattText="PREIS / RABATT:\n"+
-    "- Gesamtmenge: "+pricing.totalQty+" Stück\n"+
-    "- Produktpreis: € "+formatPrice(pricing.productSubtotal||0)+"\n"+
+    "- Gesamtmenge: "+pricing.totalQty+" Stueck\n"+
+    "- Produktpreis: EUR "+formatPrice(pricing.productSubtotal||0)+"\n"+
     "- Druckpositionen: "+(pricing.totalPrintPositions||0)+"\n"+
     "- Druckkosten pro Druck: "+(pricing.printCostMixed?pricing.printCostLabel:("EUR "+formatPrice(pricing.printCostPerPosition||0)))+"\\n"+
-    "- Druckkosten gesamt: € "+formatPrice(pricing.printCostAmount||0)+"\n"+
-    "- Warenwert: € "+formatPrice(pricing.subtotal)+"\n"+
-    (pricing.quantityDiscountRate>0 ? "- Mengenrabatt: "+pricing.quantityDiscountRate+"% (-€ "+formatPrice(pricing.quantityDiscountAmount)+")\n" : "")+
-    "- Zwischensumme: € "+formatPrice(pricing.afterQuantity)+"\n"+
+    "- Druckkosten gesamt: EUR "+formatPrice(pricing.printCostAmount||0)+"\n"+
+    "- Warenwert: EUR "+formatPrice(pricing.subtotal)+"\n"+
+    (pricing.quantityDiscountRate>0 ? "- Mengenrabatt: "+pricing.quantityDiscountRate+"% (-EUR "+formatPrice(pricing.quantityDiscountAmount)+")\n" : "")+
+    "- Zwischensumme: EUR "+formatPrice(pricing.afterQuantity)+"\n"+
     "- Gutscheincode: "+(pricing.voucherCode||"-")+"\n"+
-    (pricing.voucherDiscountRate>0 ? "- Gutscheinrabatt: "+pricing.voucherDiscountRate+"% (-€ "+formatPrice(pricing.voucherDiscountAmount)+")\n" : "")+
-    "- Endpreis: € "+formatPrice(pricing.total)+"\n\n";
+    (pricing.voucherDiscountRate>0 ? "- Gutscheinrabatt: "+pricing.voucherDiscountRate+"% (-EUR "+formatPrice(pricing.voucherDiscountAmount)+")\n" : "")+
+    "- Endpreis: EUR "+formatPrice(pricing.total)+"\n\n";
   return "Hallo!\n\nich habe folgende Produkte im Konfigurator zusammengestellt.\n\nPRODUKTE / ANFRAGE:\n"+productText+
     rabattText+
     "KUNDEN-INFOS:\n- Meine E-Mail: "+clientEmail+"\n- Telefon: "+(clientPhone||"-")+"\n- Anmerkung: "+(notes||"-")+"\n\n"+
-    "Die Layoutbilder für Vorder- und Rückseite wurden über das Online-Formular mitgesendet.\n\nBitte um Rückmeldung.\n";
+    "Die Layoutbilder fuer Vorder- und Rueckseite wurden ueber das Online-Formular mitgesendet.\n\nBitte um Rueckmeldung.\n";
 }
 
 function createSideBlob(item,side){
@@ -908,7 +908,7 @@ function createSideBlob(item,side){
       imgLeftSleeve:item.productImages.leftSleeve,
       imgRightSleeve:item.productImages.rightSleeve
     },side);
-    if(!imageUrl){reject(new Error("Für "+getSideLabel(side)+" wurde kein Produktbild hinterlegt."));return;}
+    if(!imageUrl){reject(new Error("Fuer "+getSideLabel(side)+" wurde kein Produktbild hinterlegt."));return;}
     const productImage=new Image();
     productImage.crossOrigin="anonymous";
     productImage.onload=function(){
@@ -957,7 +957,7 @@ function drawDesign(ctx,canvas,d){
 }
 
 async function downloadAllRequestDesignImages(){
-  if(!requestItems.length){alert("Bitte zuerst ein Produkt zur Anfrage hinzufügen.");return;}
+  if(!requestItems.length){alert("Bitte zuerst ein Produkt zur Anfrage hinzufuegen.");return;}
   let fileIndex=1;
   for(const item of requestItems){
     for(const side of SIDES){
@@ -1053,7 +1053,7 @@ async function sendOrder(){
   const notes = document.getElementById("client-notes").value.trim();
   const status = document.getElementById("send-status");
   if(!clientEmail){alert("Bitte E-Mail angeben.");return;}
-  if(!requestItems.length){alert("Bitte zuerst mindestens ein Produkt hinzufügen.");return;}
+  if(!requestItems.length){alert("Bitte zuerst mindestens ein Produkt hinzufuegen.");return;}
   const mailText=buildMailText(),sendBtn=document.getElementById("send-order-btn");
   sendBtn.disabled=true;sendBtn.textContent="Wird gespeichert...";status.textContent="Layouts werden vorbereitet...";
   try{
@@ -1134,11 +1134,11 @@ const {data:requestRow,error}=await supabaseClient.from("requests").insert({
     const cartPayload=buildShopifyCartPayload(clientEmail,clientPhone,notes,requestId);
     if(cartPayload.items.length && sendToShopifyCart(cartPayload)){
       alert("Personalisierung gespeichert. Die Produkte werden jetzt in den Shopify Warenkorb gelegt.");
-      status.textContent="Wird an Shopify �bergeben...";
+      status.textContent="Wird an Shopify bergeben...";
     }else if(cartPayload.missing.length){
-      alert("Anfrage wurde gespeichert. F�r den Shopify Warenkorb fehlen noch Variant IDs bei: "+cartPayload.missing.join(", "));
+      alert("Anfrage wurde gespeichert. Fr den Shopify Warenkorb fehlen noch Variant IDs bei: "+cartPayload.missing.join(", "));
     }else{
-      alert("Anfrage wurde gespeichert. Wenn der Konfigurator in Shopify eingebettet ist, kann er danach in den Warenkorb �bergeben.");
+      alert("Anfrage wurde gespeichert. Wenn der Konfigurator in Shopify eingebettet ist, kann er danach in den Warenkorb bergeben.");
     }
     requestItems=[];
     renderRequestList();
@@ -1146,7 +1146,7 @@ const {data:requestRow,error}=await supabaseClient.from("requests").insert({
   }catch(error){
     console.error(error);
     status.textContent="Fehler: "+error.message;
-    alert("Speichern fehlgeschlagen: "+error.message+"\\n\\nBitte prüfe, ob die Supabase Tabelle requests angelegt wurde.");
+    alert("Speichern fehlgeschlagen: "+error.message+"\\n\\nBitte pruefe, ob die Supabase Tabelle requests angelegt wurde.");
   }finally{
     sendBtn.disabled=false;sendBtn.textContent="In den Warenkorb / Anfrage senden";
   }

@@ -1,6 +1,6 @@
 let supabaseClient,session=null,products=[],categories=[],subcategories=[],requests=[],quantityDiscountTiers=[],couponCodes=[],visitorStats={total:0,today:0,last7:0},printCostPerPosition=5;
 const SIDES=["front","back","leftSleeve","rightSleeve"];
-const SIDE_LABELS={front:"Vorderseite",back:"Rückseite",leftSleeve:"Linker Ärmel",rightSleeve:"Rechter Ärmel"};
+const SIDE_LABELS={front:"Vorderseite",back:"Rueckseite",leftSleeve:"Linker Aermel",rightSleeve:"Rechter Aermel"};
 function sideLabel(side){return SIDE_LABELS[side]||side;}
 
 document.addEventListener("DOMContentLoaded",init);
@@ -122,7 +122,7 @@ function toggleStatsPanel(force){
 
 async function login(){
   const email=document.getElementById("login-email").value.trim(),password=document.getElementById("login-password").value,status=document.getElementById("login-status");
-  status.textContent="Login läuft...";
+  status.textContent="Login laeuft...";
   const{data,error}=await supabaseClient.auth.signInWithPassword({email,password});
   if(error){status.textContent=error.message;return}
   session=data.session;status.textContent="";updateLoginState();
@@ -185,7 +185,7 @@ async function loadCategories(){
   }catch(err){
     const productCats=products.map(p=>p.category).filter(Boolean);
     categories=[...new Set(productCats)].sort();
-    showWarning("Hinweis: Tabelle categories fehlt oder ist nicht freigegeben. Bitte SQL aus supabase-setup-v18.sql ausführen. "+err.message);
+    showWarning("Hinweis: Tabelle categories fehlt oder ist nicht freigegeben. Bitte SQL aus supabase-setup-v18.sql ausfuehren. "+err.message);
   }
 }
 
@@ -198,7 +198,7 @@ async function loadSubcategories(){
     subcategories=uniqueSubcategories([...stored,...productSubs]);
   }catch(err){
     subcategories=uniqueSubcategories(productSubs);
-    showWarning("Hinweis: Tabelle subcategories fehlt oder ist nicht freigegeben. Bitte SQL für Unterkategorien ausführen. "+err.message);
+    showWarning("Hinweis: Tabelle subcategories fehlt oder ist nicht freigegeben. Bitte SQL fuer Unterkategorien ausfuehren. "+err.message);
   }
 }
 
@@ -216,7 +216,7 @@ function uniqueSubcategories(rows){
 function renderCategorySelect(){
   const sel=document.getElementById("p-category");
   const current=sel.value;
-  sel.innerHTML='<option value="">Kategorie wählen...</option>';
+  sel.innerHTML='<option value="">Kategorie waehlen...</option>';
   categories.forEach(c=>{const opt=document.createElement("option");opt.value=c;opt.textContent=c;sel.appendChild(opt)});
   sel.value=categories.includes(current)?current:"";
 }
@@ -232,7 +232,7 @@ function renderSubcategoryOptions(){
   if(!sel)return;
   const category=document.getElementById("p-category")?.value||"";
   const current=sel.value;
-  sel.innerHTML='<option value="">Unterkategorie wählen...</option>';
+  sel.innerHTML='<option value="">Unterkategorie waehlen...</option>';
   getSubcategories(category).forEach(sub=>{
     const opt=document.createElement("option");
     opt.value=sub;
@@ -246,7 +246,7 @@ function renderSubcategoryParentSelect(){
   const sel=document.getElementById("subcategory-parent");
   if(!sel)return;
   const current=sel.value;
-  sel.innerHTML='<option value="">Kategorie wählen...</option>';
+  sel.innerHTML='<option value="">Kategorie waehlen...</option>';
   categories.forEach(c=>{const opt=document.createElement("option");opt.value=c;opt.textContent=c;sel.appendChild(opt)});
   sel.value=categories.includes(current)?current:"";
 }
@@ -256,13 +256,13 @@ function renderSubcategoryList(){
   if(!list)return;
   const category=document.getElementById("subcategory-parent")?.value||"";
   list.innerHTML="";
-  if(!category){list.innerHTML='<div class="sub">Bitte Hauptkategorie wählen.</div>';return}
+  if(!category){list.innerHTML='<div class="sub">Bitte Hauptkategorie waehlen.</div>';return}
   const rows=subcategories.filter(s=>s.category===category);
   if(!rows.length){list.innerHTML='<div class="sub">Noch keine Unterkategorien.</div>';return}
   rows.forEach(s=>{
     const chip=document.createElement("span");
     chip.className="category-chip";
-    chip.innerHTML="<span></span><button type='button'>×</button>";
+    chip.innerHTML="<span></span><button type='button'>x</button>";
     chip.querySelector("span").textContent=s.name;
     chip.querySelector("button").addEventListener("click",()=>removeSubcategory(s.category,s.name));
     list.appendChild(chip);
@@ -276,7 +276,7 @@ function renderCategoryList(){
   categories.forEach(c=>{
     const chip=document.createElement("span");
     chip.className="category-chip";
-    chip.innerHTML="<span></span><button type='button'>×</button>";
+    chip.innerHTML="<span></span><button type='button'>x</button>";
     chip.querySelector("span").textContent=c;
     chip.querySelector("button").addEventListener("click",()=>removeCategory(c));
     list.appendChild(chip);
@@ -309,7 +309,7 @@ async function loadDiscountSettings(){
     quantityDiscountTiers=normalizeDiscountTiers(data?.value);
   }catch(err){
     quantityDiscountTiers=normalizeDiscountTiers();
-    showWarning('Hinweis: Tabelle settings fehlt oder ist nicht freigegeben. Bitte SQL aus supabase-setup-v18.sql ausführen. '+err.message);
+    showWarning('Hinweis: Tabelle settings fehlt oder ist nicht freigegeben. Bitte SQL aus supabase-setup-v18.sql ausfuehren. '+err.message);
   }
 }
 
@@ -321,7 +321,7 @@ function renderDiscountSettings(){
   quantityDiscountTiers.forEach((tier,idx)=>{
     const row=document.createElement('div');
     row.className='discount-settings-row';
-    row.innerHTML='<label>ab Stück</label><input type="number" min="1" class="discount-min" value="'+escapeHtml(tier.min_qty)+'"><label>Rabatt %</label><input type="number" min="0" max="100" step="0.1" class="discount-percent" value="'+escapeHtml(tier.discount_percent)+'"><button type="button" class="delete-btn">×</button>';
+    row.innerHTML='<label>ab Stueck</label><input type="number" min="1" class="discount-min" value="'+escapeHtml(tier.min_qty)+'"><label>Rabatt %</label><input type="number" min="0" max="100" step="0.1" class="discount-percent" value="'+escapeHtml(tier.discount_percent)+'"><button type="button" class="delete-btn">x</button>';
     row.querySelector('.discount-min').addEventListener('input',()=>{quantityDiscountTiers[idx].min_qty=row.querySelector('.discount-min').value;});
     row.querySelector('.discount-percent').addEventListener('input',()=>{quantityDiscountTiers[idx].discount_percent=row.querySelector('.discount-percent').value;});
     row.querySelector('.delete-btn').addEventListener('click',()=>{quantityDiscountTiers.splice(idx,1);renderDiscountSettings();});
@@ -355,7 +355,7 @@ async function loadCouponSettings(){
     couponCodes=normalizeCouponCodes(data?.value);
   }catch(err){
     couponCodes=normalizeCouponCodes();
-    showWarning('Hinweis: Gutscheincodes konnten nicht geladen werden. Bitte SQL aus supabase-setup-v18.sql ausführen. '+err.message);
+    showWarning('Hinweis: Gutscheincodes konnten nicht geladen werden. Bitte SQL aus supabase-setup-v18.sql ausfuehren. '+err.message);
   }
 }
 
@@ -367,7 +367,7 @@ function renderCouponSettings(){
   couponCodes.forEach((coupon,idx)=>{
     const row=document.createElement('div');
     row.className='coupon-settings-row';
-    row.innerHTML='<label>Code</label><input type="text" class="coupon-code" value="'+escapeHtml(coupon.code)+'" placeholder="z.B. PROTEX10"><label>Rabatt %</label><input type="number" min="0" max="100" step="0.1" class="coupon-percent" value="'+escapeHtml(coupon.discount_percent)+'"><label class="coupon-active-label"><input type="checkbox" class="coupon-active" '+(coupon.active!==false?'checked':'')+'> Aktiv</label><button type="button" class="delete-btn">×</button>';
+    row.innerHTML='<label>Code</label><input type="text" class="coupon-code" value="'+escapeHtml(coupon.code)+'" placeholder="z.B. PROTEX10"><label>Rabatt %</label><input type="number" min="0" max="100" step="0.1" class="coupon-percent" value="'+escapeHtml(coupon.discount_percent)+'"><label class="coupon-active-label"><input type="checkbox" class="coupon-active" '+(coupon.active!==false?'checked':'')+'> Aktiv</label><button type="button" class="delete-btn">x</button>';
     row.querySelector('.coupon-code').addEventListener('input',()=>{couponCodes[idx].code=row.querySelector('.coupon-code').value.toUpperCase();});
     row.querySelector('.coupon-percent').addEventListener('input',()=>{couponCodes[idx].discount_percent=row.querySelector('.coupon-percent').value;});
     row.querySelector('.coupon-active').addEventListener('change',()=>{couponCodes[idx].active=row.querySelector('.coupon-active').checked;});
@@ -409,7 +409,7 @@ async function loadPrintCostSettings(){
     printCostPerPosition=normalizePrintCost(data?.value);
   }catch(err){
     printCostPerPosition=5;
-    showWarning('Hinweis: Druckkosten konnten nicht geladen werden. Bitte SQL aus supabase-setup-v18.sql ausführen. '+err.message);
+    showWarning('Hinweis: Druckkosten konnten nicht geladen werden. Bitte SQL aus supabase-setup-v18.sql ausfuehren. '+err.message);
   }
 }
 
@@ -424,7 +424,7 @@ async function savePrintCostSettings(){
   try{
     const input=document.getElementById('print-cost-input');
     const value=Number(String(input?.value||'0').replace(',','.'))||0;
-    if(value<0)throw new Error('Bitte einen gültigen Betrag eingeben.');
+    if(value<0)throw new Error('Bitte einen gueltigen Betrag eingeben.');
     const {error}=await supabaseClient.from('settings').upsert({key:'print_cost_per_position',value:{price_per_print:value},updated_at:new Date().toISOString()},{onConflict:'key'});
     if(error)throw error;
     printCostPerPosition=value;
@@ -455,7 +455,7 @@ async function loadVisitorStats(updateStatus=true){
     renderVisitorStats();
     if(status)status.textContent='';
   }catch(err){
-    if(box)box.innerHTML='<div class="notice warn">Besucherzähler konnte nicht geladen werden. Bitte SQL ausführen.<br>'+escapeHtml(err.message)+'</div>';
+    if(box)box.innerHTML='<div class="notice warn">Besucherzaehler konnte nicht geladen werden. Bitte SQL ausfuehren.<br>'+escapeHtml(err.message)+'</div>';
     if(status)status.textContent='';
   }
 }
@@ -467,14 +467,14 @@ function renderVisitorStats(){
 }
 
 async function clearVisitorStats(){
-  if(!confirm('Besucherzähler wirklich löschen?'))return;
+  if(!confirm('Besucherzaehler wirklich loeschen?'))return;
   const status=document.getElementById('visitor-stats-status');
-  if(status)status.textContent='Zähler wird gelöscht...';
+  if(status)status.textContent='Zaehler wird geloescht...';
   try{
     const {error}=await supabaseClient.from('visits').delete().neq('id',0);
     if(error)throw error;
     await loadVisitorStats(false);
-    if(status)status.textContent='Besucherzähler gelöscht.';
+    if(status)status.textContent='Besucherzaehler geloescht.';
   }catch(err){
     if(status)status.textContent=err.message;
   }
@@ -489,7 +489,7 @@ async function addCategory(){
     if(error)throw error;
   }catch(err){
     if(!categories.includes(val))categories.push(val);
-    showWarning("Kategorie nur lokal hinzugefügt. Für dauerhaftes Speichern bitte Tabelle categories anlegen. "+err.message);
+    showWarning("Kategorie nur lokal hinzugefuegt. Fuer dauerhaftes Speichern bitte Tabelle categories anlegen. "+err.message);
   }
   if(!categories.includes(val))categories.push(val);
   categories.sort();
@@ -505,14 +505,14 @@ async function addCategory(){
 
 async function removeCategory(cat){
   if(products.some(p=>p.category===cat)){
-    alert("Diese Kategorie wird noch von Produkten verwendet. Bitte Produkte vorher ändern.");
+    alert("Diese Kategorie wird noch von Produkten verwendet. Bitte Produkte vorher aendern.");
     return;
   }
-  if(!confirm("Kategorie '"+cat+"' wirklich löschen?"))return;
+  if(!confirm("Kategorie '"+cat+"' wirklich loeschen?"))return;
   try{
     const{error}=await supabaseClient.from("categories").delete().eq("name",cat);
     if(error)throw error;
-  }catch(err){alert("Kategorie konnte nicht aus der Datenbank gelöscht werden: "+err.message)}
+  }catch(err){alert("Kategorie konnte nicht aus der Datenbank geloescht werden: "+err.message)}
   categories=categories.filter(c=>c!==cat);
   renderCategorySelect();
   renderSubcategoryParentSelect();
@@ -524,13 +524,13 @@ async function addSubcategory(){
   const category=document.getElementById("subcategory-parent").value;
   const input=document.getElementById("new-subcategory");
   const name=input.value.trim();
-  if(!category){alert("Bitte zuerst eine Hauptkategorie wählen.");return}
+  if(!category){alert("Bitte zuerst eine Hauptkategorie waehlen.");return}
   if(!name)return;
   try{
     const{error}=await supabaseClient.from("subcategories").upsert({category,name},{onConflict:"category,name"});
     if(error)throw error;
   }catch(err){
-    showWarning("Unterkategorie nur lokal hinzugefügt. Bitte SQL für Unterkategorien ausführen. "+err.message);
+    showWarning("Unterkategorie nur lokal hinzugefuegt. Bitte SQL fuer Unterkategorien ausfuehren. "+err.message);
   }
   subcategories=uniqueSubcategories([...subcategories,{category,name}]);
   input.value="";
@@ -541,8 +541,8 @@ async function addSubcategory(){
 async function removeSubcategory(category,name){
   const usedCount=products.filter(p=>p.category===category&&p.subcategory===name).length;
   const msg=usedCount
-    ? "Unterkategorie '"+name+"' wirklich l�schen? Sie wird auch bei "+usedCount+" Produkt(en) entfernt."
-    : "Unterkategorie '"+name+"' wirklich l�schen?";
+    ? "Unterkategorie '"+name+"' wirklich loeschen? Sie wird auch bei "+usedCount+" Produkt(en) entfernt."
+    : "Unterkategorie '"+name+"' wirklich loeschen?";
   if(!confirm(msg))return;
   try{
     if(usedCount){
@@ -552,7 +552,7 @@ async function removeSubcategory(category,name){
     const{error}=await supabaseClient.from("subcategories").delete().eq("category",category).eq("name",name);
     if(error)throw error;
   }catch(err){
-    alert("Unterkategorie konnte nicht aus der Datenbank gel�scht werden: "+err.message);
+    alert("Unterkategorie konnte nicht aus der Datenbank gelscht werden: "+err.message);
     return;
   }
   products=products.map(p=>p.category===category&&p.subcategory===name?{...p,subcategory:""}:p);
@@ -616,7 +616,7 @@ function createProductAdminRow(p){
   const actions=row.querySelector(".product-actions");
   actions.appendChild(actionBtn("Bearbeiten","edit-btn",()=>editProduct(p)));
   actions.appendChild(actionBtn("Duplizieren","copy-btn",()=>duplicateProduct(p)));
-  actions.appendChild(actionBtn("L�schen","delete-btn",()=>deleteProduct(p.id)));
+  actions.appendChild(actionBtn("Loeschen","delete-btn",()=>deleteProduct(p.id)));
   return row;
 }
 
@@ -660,18 +660,22 @@ function parseMoneyValue(value){
 }
 
 function productProfit(product){
-  const sell=parseMoneyValue(product.price);
+  const sellGross=parseMoneyValue(product.price);
   const buy=parseMoneyValue(product.sevdeskPurchasePrice);
-  if(sell==null||buy==null)return null;
-  const profit=sell-buy;
-  const margin=sell!==0 ? (profit/sell)*100 : 0;
-  return {sell,buy,profit,margin};
+  if(sellGross==null||buy==null)return null;
+  const taxRate=parseMoneyValue(product.sevdeskTaxRate);
+  const taxFactor=taxRate!=null&&taxRate>0 ? 1+(taxRate/100) : 1;
+  const sellNet=sellGross/taxFactor;
+  const vat=sellGross-sellNet;
+  const profit=sellNet-buy;
+  const margin=sellNet!==0 ? (profit/sellNet)*100 : 0;
+  return {sellGross,sellNet,buy,vat,profit,margin,taxRate:taxRate||0};
 }
 
 function profitTextForProduct(product){
   const data=productProfit(product);
   if(!data)return "";
-  return " - Gewinn EUR "+formatPrice(data.profit)+" ("+formatPercent(data.margin)+")";
+  return " - Gewinn netto EUR "+formatPrice(data.profit)+" ("+formatPercent(data.margin)+")";
 }
 
 function formatPercent(value){
@@ -684,12 +688,14 @@ function renderProfitSummary(list){
   if(!el)return;
   const rows=list.map(productProfit).filter(Boolean);
   if(!rows.length){el.classList.add("hidden");el.textContent="";return;}
-  const sell=rows.reduce((sum,r)=>sum+r.sell,0);
+  const sellGross=rows.reduce((sum,r)=>sum+r.sellGross,0);
+  const sellNet=rows.reduce((sum,r)=>sum+r.sellNet,0);
   const buy=rows.reduce((sum,r)=>sum+r.buy,0);
-  const profit=sell-buy;
-  const margin=sell!==0 ? (profit/sell)*100 : 0;
+  const vat=rows.reduce((sum,r)=>sum+r.vat,0);
+  const profit=sellNet-buy;
+  const margin=sellNet!==0 ? (profit/sellNet)*100 : 0;
   el.classList.remove("hidden");
-  el.textContent="Gewinn sichtbar: EUR "+formatPrice(profit)+" ("+formatPercent(margin)+") - Verkauf EUR "+formatPrice(sell)+" - Einkauf EUR "+formatPrice(buy);
+  el.textContent="Gewinn netto: EUR "+formatPrice(profit)+" ("+formatPercent(margin)+") - Verkauf brutto EUR "+formatPrice(sellGross)+" - Netto EUR "+formatPrice(sellNet)+" - MwSt EUR "+formatPrice(vat)+" - Einkauf netto EUR "+formatPrice(buy);
 }
 function productTypeLabel(type){
   const map={configurator:"Konfigurator",shop_only:"Nur Shop",set:"Set",print_fee:"Druckkosten/Zubehoer"};
@@ -824,7 +830,7 @@ async function duplicateProduct(p){
 }
 
 async function deleteProduct(id){
-  if(!confirm("Produkt wirklich löschen?"))return;
+  if(!confirm("Produkt wirklich loeschen?"))return;
   const{error}=await supabaseClient.from("products").delete().eq("id",id);
   if(error)alert(error.message);
   await loadAll();
@@ -832,14 +838,14 @@ async function deleteProduct(id){
 
 function downloadTemplate(){
   const rows=[
-    ["Produktname","Produkttyp","Kategorie","Beschreibung","Preis","Größen","Aktiv","BildVorderseite","BildRückseite","BildLinkerÄrmel","BildRechterÄrmel"],
+    ["Produktname","Produkttyp","Kategorie","Beschreibung","Preis","Groessen","Aktiv","BildVorderseite","BildRueckseite","BildLinkerAermel","BildRechterAermel"],
   ];
   const csv="\ufeff"+rows.map(row=>row.map(csvEscape).join(",")).join("\r\n");
   downloadText(csv,"produkt-vorlage.csv","text/csv;charset=utf-8");
 }
 
 function exportCsv(){
-  const rows=[["Produktname","Produkttyp","Kategorie","Unterkategorie","Beschreibung","Preis","sevDeskArtikelnummer","sevDeskEinheit","sevDeskBestand","sevDeskBestandAktiv","sevDeskUmsatzsteuer","sevDeskEinkaufspreis","sevDeskKategorie","DruckkostenProDruck","DruckRegel","Gr��en","ShopifyVariantIDs","Aktiv","Personalisierbar","BildVorderseite","BildR�ckseite","BildLinker�rmel","BildRechter�rmel"]];
+  const rows=[["Produktname","Produkttyp","Kategorie","Unterkategorie","Beschreibung","Preis","sevDeskArtikelnummer","sevDeskEinheit","sevDeskBestand","sevDeskBestandAktiv","sevDeskUmsatzsteuer","sevDeskEinkaufspreis","sevDeskKategorie","DruckkostenProDruck","DruckRegel","Groessen","ShopifyVariantIDs","Aktiv","Personalisierbar","BildVorderseite","BildRueckseite","BildLinkerAermel","BildRechterAermel"]];
   products.forEach(p=>rows.push([
     p.title||"",
     p.productType||"configurator",
@@ -923,7 +929,7 @@ function exportShopifyCsv(){
         idx===0?(p.subcategory||p.category||""):"",
         idx===0?[p.category,p.subcategory].filter(Boolean).join(", "):"",
         idx===0?"TRUE":"",
-        "Größe",
+        "Groesse",
         size,
         handle+"-"+slugify(size),
         "0",
@@ -995,7 +1001,7 @@ function parseCsv(text){
 }
 
 function normalizeHeader(value){
-  return String(value||"").toLowerCase().replace(/\s+/g,"").replace(/ä/g,"ae").replace(/ö/g,"oe").replace(/ü/g,"ue").replace(/ß/g,"ss");
+  return String(value||"").toLowerCase().replace(/\s+/g,"").replace(/ae/g,"ae").replace(/oe/g,"oe").replace(/ue/g,"ue").replace(/ss/g,"ss");
 }
 
 function normalizeProductType(value){
@@ -1079,14 +1085,14 @@ async function importCsv(e){
       sevdeskPurchasePrice:pick(c,headers,["sevDeskEinkaufspreis","Einkaufspreis"],-1),
       sevdeskCategory:(isSevdeskArticleCsv?pick(c,headers,["Kategorie"],8):pick(c,headers,["sevDeskKategorie"],-1))||"Standard",
       printCostPerPosition:printCostRaw,
-      sizes:splitList(pick(c,headers,["Größen","Groessen"],4+offset).replaceAll("|",",")),
+      sizes:splitList(pick(c,headers,["Groessen","Groessen"],4+offset).replaceAll("|",",")),
       shopifyVariantIds:shopifyVariantIds,
       active:isSevdeskArticleCsv?true:(!activeRaw || !["false","0","nein","no","inaktiv"].includes(String(activeRaw).toLowerCase())),
       personalizable:isSevdeskArticleCsv?false:(!personalizableRaw || !["false","0","nein","no","nur shop","shop","shopify"].includes(String(personalizableRaw).toLowerCase())),
       imgFront:pick(c,headers,["BildVorderseite","Bild vorne","Vorderseite","BildVorne"],6+offset+printCostOffset+shopifyOffset+personalizableOffset),
-      imgBack:pick(c,headers,["BildRückseite","BildRueckseite","Bild hinten","Rückseite","Rueckseite","BildHinten"],7+offset+printCostOffset+shopifyOffset+personalizableOffset),
-      imgLeftSleeve:pick(c,headers,["BildLinkerÄrmel","BildLinkerAermel","Linker Ärmel","Linker Aermel"],8+offset+printCostOffset+shopifyOffset+personalizableOffset),
-      imgRightSleeve:pick(c,headers,["BildRechterÄrmel","BildRechterAermel","Rechter Ärmel","Rechter Aermel"],9+offset+printCostOffset+shopifyOffset+personalizableOffset)
+      imgBack:pick(c,headers,["BildRueckseite","BildRueckseite","Bild hinten","Rueckseite","Rueckseite","BildHinten"],7+offset+printCostOffset+shopifyOffset+personalizableOffset),
+      imgLeftSleeve:pick(c,headers,["BildLinkerAermel","BildLinkerAermel","Linker Aermel","Linker Aermel"],8+offset+printCostOffset+shopifyOffset+personalizableOffset),
+      imgRightSleeve:pick(c,headers,["BildRechterAermel","BildRechterAermel","Rechter Aermel","Rechter Aermel"],9+offset+printCostOffset+shopifyOffset+personalizableOffset)
     };
     const articleNumberKey=normalizeArticleNumber(product.sevdeskArticleNumber);
     if(articleNumberKey){
@@ -1096,11 +1102,11 @@ async function importCsv(e){
     }
     rows.push(rowFromProduct(product));
   }
-  if(!rows.length){alert(skipped?skipped+" vorhandene Produkte übersprungen. Keine neuen Produkte importiert.":"Keine Produkte gefunden.");e.target.value="";return}
+  if(!rows.length){alert(skipped?skipped+" vorhandene Produkte uebersprungen. Keine neuen Produkte importiert.":"Keine Produkte gefunden.");e.target.value="";return}
   const importCats=[...new Set(rows.map(r=>r.category).filter(Boolean))];
   for(const name of importCats){await supabaseClient.from("categories").upsert({name},{onConflict:"name"});}
   const{error}=await supabaseClient.from("products").insert(rows);
-  if(error)alert(error.message);else alert(rows.length+" Produkte importiert."+((skipped>0)?" "+skipped+" vorhandene übersprungen.":""));
+  if(error)alert(error.message);else alert(rows.length+" Produkte importiert."+((skipped>0)?" "+skipped+" vorhandene uebersprungen.":""));
   e.target.value="";
   await loadAll();
 }
@@ -1156,7 +1162,7 @@ async function loadRequests(){
     requests=data||[];
     renderRequests();
   }catch(err){
-    list.innerHTML='<div class="notice warn">Anfragen konnten nicht geladen werden. Bitte SQL aus supabase-setup-v18.sql ausführen.<br>'+err.message+'</div>';
+    list.innerHTML='<div class="notice warn">Anfragen konnten nicht geladen werden. Bitte SQL aus supabase-setup-v18.sql ausfuehren.<br>'+err.message+'</div>';
   }
 }
 
@@ -1164,15 +1170,15 @@ function renderRequests(){
   const list=document.getElementById("admin-request-list");
   const detail=document.getElementById("admin-request-detail");
   list.innerHTML="";
-  if(detail)detail.innerHTML='<div class="sub">Anfrage anklicken für Details.</div>';
+  if(detail)detail.innerHTML='<div class="sub">Anfrage anklicken fuer Details.</div>';
   if(!requests.length){list.innerHTML='<div class="sub">Noch keine Anfragen vorhanden.</div>';return}
   requests.forEach(r=>{
     const count=(r.order_data?.items||[]).length;
     const row=document.createElement("div");
     row.className="admin-request-row";
-    row.innerHTML='<div class="request-row-main"><strong></strong><div class="sub"></div></div><span class="request-status"></span><button class="mini-delete-btn" type="button">Löschen</button>';
+    row.innerHTML='<div class="request-row-main"><strong></strong><div class="sub"></div></div><span class="request-status"></span><button class="mini-delete-btn" type="button">Loeschen</button>';
     row.querySelector("strong").textContent=r.customer_email||"Ohne E-Mail";
-    row.querySelector(".sub").textContent=formatDate(r.created_at)+" · "+count+" Produkt(e)";
+    row.querySelector(".sub").textContent=formatDate(r.created_at)+"  -  "+count+" Produkt(e)";
     row.querySelector(".request-status").textContent=r.status||"Neu";
     row.querySelector(".mini-delete-btn").addEventListener("click",e=>{e.stopPropagation();deleteRequest(r.id);});
     row.addEventListener("click",()=>showRequestDetail(r));
@@ -1185,29 +1191,29 @@ function showRequestDetail(r){
   const items=r.order_data?.items||[];
 
   let html='<h3>Anfrage</h3>';
-  html+='<div class="sub">'+formatDate(r.created_at)+' � '+(r.status||"Neu")+'</div>';
+  html+='<div class="sub">'+formatDate(r.created_at)+'  '+(r.status||"Neu")+'</div>';
   html+='<div class="request-admin-controls"><label>Status</label><select id="request-status-select"><option>Neu</option><option>In Arbeit</option><option>Wartet auf Kunde</option><option>Erledigt</option></select><label>Interne Notiz</label><textarea id="request-internal-note" rows="3" placeholder="Nur intern sichtbar"></textarea><button class="btn btn-light" id="save-request-meta-btn" type="button">Status speichern</button></div>';
   html+='<p><strong>Kunde:</strong> '+escapeHtml(r.customer_email||"-")+'</p>';
   html += '<p><strong>Telefon:</strong> ' +
         escapeHtml(r.phone || "-") +
         '</p>';
-  html+='<button class="btn btn-danger" id="detail-delete-request-btn" type="button">Anfrage löschen</button>';
+  html+='<button class="btn btn-danger" id="detail-delete-request-btn" type="button">Anfrage loeschen</button>';
   html+='<p><strong>Anmerkung:</strong><br>'+escapeHtml(r.note||"-").replaceAll("\\n","<br>")+'</p>';
 
   const pricing=r.order_data?.pricing;
   if(pricing){
     html+='<div class="discount-box"><strong>Preis / Rabatt</strong><br>';
-    html+='Gesamtmenge: '+escapeHtml(pricing.totalQty||0)+' Stück<br>';
-    html+='Produktpreis: € '+formatPrice(pricing.productSubtotal||0)+'<br>';
+    html+='Gesamtmenge: '+escapeHtml(pricing.totalQty||0)+' Stueck<br>';
+    html+='Produktpreis: EUR '+formatPrice(pricing.productSubtotal||0)+'<br>';
     html+='Druckpositionen: '+escapeHtml(pricing.totalPrintPositions||0)+'<br>';
-    html+='Druckkosten pro Druck: € '+formatPrice(pricing.printCostPerPosition||0)+'<br>';
-    html+='Druckkosten gesamt: € '+formatPrice(pricing.printCostAmount||0)+'<br>';
-    html+='Warenwert: € '+formatPrice(pricing.subtotal||0)+'<br>';
-    html+='Mengenrabatt: '+escapeHtml(pricing.quantityDiscountRate||0)+'% (-€ '+formatPrice(pricing.quantityDiscountAmount||0)+')<br>';
-    html+='Zwischensumme: € '+formatPrice(pricing.afterQuantity||0)+'<br>';
+    html+='Druckkosten pro Druck: EUR '+formatPrice(pricing.printCostPerPosition||0)+'<br>';
+    html+='Druckkosten gesamt: EUR '+formatPrice(pricing.printCostAmount||0)+'<br>';
+    html+='Warenwert: EUR '+formatPrice(pricing.subtotal||0)+'<br>';
+    html+='Mengenrabatt: '+escapeHtml(pricing.quantityDiscountRate||0)+'% (-EUR '+formatPrice(pricing.quantityDiscountAmount||0)+')<br>';
+    html+='Zwischensumme: EUR '+formatPrice(pricing.afterQuantity||0)+'<br>';
     html+='Gutscheincode: '+escapeHtml(pricing.voucherCode||'-')+'<br>';
-    html+='Gutscheinrabatt: '+escapeHtml(pricing.voucherDiscountRate||0)+'% (-€ '+formatPrice(pricing.voucherDiscountAmount||0)+')<br>';
-    html+='<strong>Endpreis: € '+formatPrice(pricing.total||0)+'</strong>';
+    html+='Gutscheinrabatt: '+escapeHtml(pricing.voucherDiscountRate||0)+'% (-EUR '+formatPrice(pricing.voucherDiscountAmount||0)+')<br>';
+    html+='<strong>Endpreis: EUR '+formatPrice(pricing.total||0)+'</strong>';
     html+='</div>';
   }
 
@@ -1219,7 +1225,7 @@ function showRequestDetail(r){
 
     html+='<div class="request-detail-item">';
     html+='<strong>'+(idx+1)+'. '+escapeHtml(item.title||"-")+'</strong><br>';
-    html+='<span class="sub">'+escapeHtml(item.category||"-")+' · € '+escapeHtml(item.price||"")+'</span><br>';
+    html+='<span class="sub">'+escapeHtml(item.category||"-")+'  -  EUR '+escapeHtml(item.price||"")+'</span><br>';
     html+='Menge: '+qty+'<br>';
     html+='Design: '+escapeHtml(item.designSummary||"-")+'<br>';
 
@@ -1235,7 +1241,7 @@ function showRequestDetail(r){
           html+='Text: '+escapeHtml(d.text)+'<br>';
           html+='Schriftart: '+escapeHtml(d.font||"-")+'<br>';
           html+='Farbe: '+escapeHtml(d.color||"-")+'<br>';
-          html+='Schriftgröße: '+escapeHtml(d.fontSize||"-")+'<br>';
+          html+='Schriftgroesse: '+escapeHtml(d.fontSize||"-")+'<br>';
           html+='Position X: '+escapeHtml(d.relX||"-")+'<br>';
           html+='Position Y: '+escapeHtml(d.relY||"-")+'<br>';
           html+='Breite: '+escapeHtml(d.relW||"-");
@@ -1306,7 +1312,7 @@ function showRequestDetail(r){
       const mime=escapeHtml(file.mime||"application/octet-stream");
       const filename=escapeHtml(file.filename||("grafik-"+(i+1)));
       const used=escapeHtml(file.used_on||"");
-      html+='<a class="btn btn-light" download="'+filename+'" href="data:'+mime+';base64,'+file.content+'">Grafik '+(i+1)+' herunterladen'+(used?' · '+used:'')+'</a>';
+      html+='<a class="btn btn-light" download="'+filename+'" href="data:'+mime+';base64,'+file.content+'">Grafik '+(i+1)+' herunterladen'+(used?'  -  '+used:'')+'</a>';
     });
     html+='</div>';
   }
@@ -1343,15 +1349,15 @@ async function updateRequestMeta(id,status,internalNote){
 }
 
 async function deleteRequest(id){
-  if(!confirm("Diese Anfrage wirklich löschen?"))return;
+  if(!confirm("Diese Anfrage wirklich loeschen?"))return;
   try{
     const{error}=await supabaseClient.from("requests").delete().eq("id",id);
     if(error)throw error;
     const detail=document.getElementById("admin-request-detail");
-    if(detail)detail.innerHTML='<div class="sub">Anfrage gelöscht.</div>';
+    if(detail)detail.innerHTML='<div class="sub">Anfrage geloescht.</div>';
     await loadRequests();
   }catch(err){
-    alert("Anfrage konnte nicht gelöscht werden: "+err.message);
+    alert("Anfrage konnte nicht geloescht werden: "+err.message);
   }
 }
 
