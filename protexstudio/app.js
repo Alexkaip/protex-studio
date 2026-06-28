@@ -575,10 +575,12 @@ function buildDirectShopifyPayload(product,quantities){
     }
     items.push({
       id:variantId||"",
+      title:product.title||"",
       handle:handle,
       size:size,
       sku:hasVariantIds&&size?handle+"-"+slugify(size):handle,
       allowFirstVariant:!hasVariantIds,
+      shopOnly:true,
       quantity:q.qty,
       properties:{
         "Produkt":product.title||"",

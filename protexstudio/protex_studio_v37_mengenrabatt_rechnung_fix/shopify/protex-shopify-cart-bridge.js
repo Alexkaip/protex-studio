@@ -22,10 +22,34 @@ async function loadShopifyProduct(handle) {
   return response.json();
 }
 
+function getHandleFromProductResult(product) {
+  if (!product) return "";
+  if (product.handle) return product.handle;
+  const url = String(product.url || "");
+  const match = url.match(/\/products\/([^/?#]+)/);
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
+async function searchShopifyProduct(item) {
+  const query = String(item.title || item.properties?.Produkt || item.handle || "").trim();
+  if (!query) return null;
+  const response = await fetch(`/search/suggest.json?q=${encodeURIComponent(query)}&resources[type]=product&resources[limit]=8`, {
+    headers: { "Accept": "application/json" }
+  });
+  if (!response.ok) return null;
+  const data = await response.json();
+  const products = data?.resources?.results?.products || [];
+  if (!products.length) return null;
+  const wantedTitle = normalizeProtexValue(query);
+  const exact = products.find((product) => normalizeProtexValue(product.title) === wantedTitle) || products[0];
+  const handle = getHandleFromProductResult(exact);
+  return handle ? loadShopifyProduct(handle) : null;
+}
+
 async function resolveVariantId(item) {
   if (item.id) return item.id;
 
-  const product = await loadShopifyProduct(item.handle);
+  const product = await loadShopifyProduct(item.handle) || await searchShopifyProduct(item);
   if (!product || !Array.isArray(product.variants)) return "";
 
   if (item.allowFirstVariant === true || item.shopOnly === true) {
@@ -129,13 +153,14 @@ window.addEventListener("message", async (event) => {
     for (const rawItem of rawItems) {
       const variantId = await resolveVariantId(rawItem);
       if (!variantId) {
-        missing.push(`${rawItem.handle || rawItem.properties?.Produkt || "Produkt"}${rawItem.size || rawItem.properties?.Groesse ? " / " + (rawItem.size || rawItem.properties?.Groesse) : ""}`);
+        const sizeLabel = rawItem.size || rawItem.properties?.Groesse || rawItem.properties?.["Größe"] || "";
+        missing.push(`${rawItem.title || rawItem.properties?.Produkt || rawItem.handle || "Produkt"}${sizeLabel ? " / " + sizeLabel : ""}`);
         continue;
       }
       items.push({
         id: variantId,
         quantity: rawItem.quantity || 1,
-        label: `${rawItem.properties?.Produkt || rawItem.handle || "Produkt"}${rawItem.size || rawItem.properties?.Groesse ? " / " + (rawItem.size || rawItem.properties?.Groesse) : ""}`,
+        label: `${rawItem.title || rawItem.properties?.Produkt || rawItem.handle || "Produkt"}${rawItem.size || rawItem.properties?.Groesse || rawItem.properties?.["Größe"] ? " / " + (rawItem.size || rawItem.properties?.Groesse || rawItem.properties?.["Größe"]) : ""}`,
         properties: rawItem.properties || {}
       });
     }
