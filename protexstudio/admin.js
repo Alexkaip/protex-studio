@@ -857,7 +857,7 @@ function categoryText(p){
 
 function formatShopifyVariantIds(value){
   const ids=value&&typeof value==="object"?value:{};
-  return Object.keys(ids).sort().map(size=>size+"="+ids[size]).join("\n");
+  return Object.keys(ids).filter(size=>!String(size).startsWith("_")).sort().map(size=>size+"="+ids[size]).join("\n");
 }
 
 function parseShopifyVariantIds(value){
@@ -1013,6 +1013,8 @@ function editProduct(p){
   const printRuleInput=document.getElementById("p-print-rule");
   if(printRuleInput)printRuleInput.value=p.printRule||"standard";
   document.getElementById("p-sizes").value=(p.sizes||[]).join(",");
+  setValue("p-shopify-handle",p.shopifyVariantIds?._handle||"");
+  setValue("p-shopify-default-variant",p.shopifyVariantIds?._default||"");
   const shopifyVariants=document.getElementById("p-shopify-variants");
   if(shopifyVariants)shopifyVariants.value=formatShopifyVariantIds(p.shopifyVariantIds);
   productColorVariants=normalizeColorVariants(p.colorVariants);
@@ -1026,7 +1028,7 @@ function resetForm(){
   document.getElementById("form-title").textContent="Produkt anlegen";
   document.getElementById("edit-id").value="";
   const status=document.getElementById("save-status");if(status)status.textContent="";
-  ["p-title","p-subcategory","p-desc","p-price","p-print-cost","p-shopify-variants","p-sevdesk-article-number","p-sevdesk-purchase-price"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
+  ["p-title","p-subcategory","p-desc","p-price","p-print-cost","p-shopify-handle","p-shopify-default-variant","p-shopify-variants","p-sevdesk-article-number","p-sevdesk-purchase-price"].forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});
   setValue("p-sevdesk-unit","Stk");
   setValue("p-sevdesk-stock","0,00");
   setValue("p-sevdesk-tax-rate","20,00");
@@ -1069,7 +1071,15 @@ async function saveProduct(){
     if(rightFile)imgRightSleeve=await uploadFile(rightFile,"right-sleeve");
     if(!imgFront)throw new Error("Bitte ein Vorderseitenbild hochladen.");
     const colorVariants=await collectColorVariantsForSave();
-    const product={title:document.getElementById("p-title").value.trim(),productType:(document.getElementById("p-product-type")?.value||"configurator"),printRule:(document.getElementById("p-print-rule")?.value||"standard"),category:document.getElementById("p-category").value.trim(),subcategory:(document.getElementById("p-subcategory")?.value||"").trim(),desc:document.getElementById("p-desc").value.trim(),price:document.getElementById("p-price").value.trim(),sevdeskArticleNumber:getValue("p-sevdesk-article-number"),sevdeskUnit:getValue("p-sevdesk-unit")||"Stk",sevdeskStock:getValue("p-sevdesk-stock")||"0,00",sevdeskStockEnabled:document.getElementById("p-sevdesk-stock-enabled")?.checked===true,sevdeskTaxRate:getValue("p-sevdesk-tax-rate")||"20,00",sevdeskPurchasePrice:getValue("p-sevdesk-purchase-price"),sevdeskCategory:getValue("p-sevdesk-category")||"Standard",printCostPerPosition:(document.getElementById("p-print-cost")?.value||"").trim(),sizes:splitList(document.getElementById("p-sizes").value),shopifyVariantIds:parseShopifyVariantIds(document.getElementById("p-shopify-variants")?.value||""),colorVariants,imgFront,imgBack,imgLeftSleeve,imgRightSleeve,active:document.getElementById("p-active").checked,personalizable:document.getElementById("p-personalizable").checked};
+    const shopifyVariantIds=parseShopifyVariantIds(document.getElementById("p-shopify-variants")?.value||"");
+    const shopifyHandle=getValue("p-shopify-handle");
+    const shopifyDefaultVariant=getValue("p-shopify-default-variant");
+    if(shopifyHandle)shopifyVariantIds._handle=shopifyHandle;
+    if(shopifyDefaultVariant)shopifyVariantIds._default=shopifyDefaultVariant;
+    colorVariants.forEach(variant=>{
+      if(variant.name&&variant.shopifyVariantId)shopifyVariantIds[variant.name]=variant.shopifyVariantId;
+    });
+    const product={title:document.getElementById("p-title").value.trim(),productType:(document.getElementById("p-product-type")?.value||"configurator"),printRule:(document.getElementById("p-print-rule")?.value||"standard"),category:document.getElementById("p-category").value.trim(),subcategory:(document.getElementById("p-subcategory")?.value||"").trim(),desc:document.getElementById("p-desc").value.trim(),price:document.getElementById("p-price").value.trim(),sevdeskArticleNumber:getValue("p-sevdesk-article-number"),sevdeskUnit:getValue("p-sevdesk-unit")||"Stk",sevdeskStock:getValue("p-sevdesk-stock")||"0,00",sevdeskStockEnabled:document.getElementById("p-sevdesk-stock-enabled")?.checked===true,sevdeskTaxRate:getValue("p-sevdesk-tax-rate")||"20,00",sevdeskPurchasePrice:getValue("p-sevdesk-purchase-price"),sevdeskCategory:getValue("p-sevdesk-category")||"Standard",printCostPerPosition:(document.getElementById("p-print-cost")?.value||"").trim(),sizes:splitList(document.getElementById("p-sizes").value),shopifyVariantIds,colorVariants,imgFront,imgBack,imgLeftSleeve,imgRightSleeve,active:document.getElementById("p-active").checked,personalizable:document.getElementById("p-personalizable").checked};
     if(!product.title)throw new Error("Produktname fehlt.");
     ensureUniqueArticleNumber(product.sevdeskArticleNumber,id);
     if(product.category && !categories.includes(product.category)){
@@ -1185,7 +1195,7 @@ function exportShopifyCsv(){
   ]];
   products.filter(p=>p.active!==false).forEach(p=>{
     const sizes=(p.sizes&&p.sizes.length?p.sizes:["Standard"]);
-    const handle=slugify(p.title);
+    const handle=String(p.shopifyVariantIds?._handle||"").trim()||slugify(p.title);
     const price=formatShopifyPrice(p.price);
     const images=shopifyImagesForProduct(p);
     sizes.forEach((size,idx)=>{
@@ -1196,7 +1206,7 @@ function exportShopifyCsv(){
         idx===0?"Protex Austria":"",
         "",
         idx===0?(p.subcategory||p.category||""):"",
-        idx===0?[p.category,p.subcategory].filter(Boolean).join(", "):"",
+        idx===0?[p.category,p.subcategory,(p.personalizable!==false&&p.productType!=="shop_only"?"protex-configurator":"")].filter(Boolean).join(", "):"",
         idx===0?"TRUE":"",
         "Groesse",
         size,

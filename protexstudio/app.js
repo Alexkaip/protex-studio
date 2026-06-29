@@ -17,6 +17,7 @@ let selectedItemId = null;
 let designState = createEmptyDesignState();
 let dragState = null;
 let shopifyCartStatusTimer = null;
+let shopifyLaunchContext = null;
 
 const SIDES = ["front", "back", "leftSleeve", "rightSleeve"];
 const SIDE_LABELS = {front:"Vorderseite", back:"Rückseite", leftSleeve:"Linker Ärmel", rightSleeve:"Rechter Ärmel"};
@@ -55,6 +56,22 @@ function getProductPreviewImage(product){
 
 function getShopProductPreviewImage(product){
   return getSelectedShopColorVariant(product)?.images?.front || getProductPreviewImage(product);
+}
+
+function getProductShopifyHandle(product){
+  return String(product?.shopifyVariantIds?._handle||product?.shopifyHandle||"").trim();
+}
+
+function getProductDefaultVariantId(product){
+  return String(product?._incomingVariantId||product?.shopifyVariantIds?._default||product?.shopifyVariantId||"").trim();
+}
+
+function productMatchesLaunch(product,value){
+  const wanted=slugify(value||"");
+  if(!wanted)return false;
+  return slugify(product.title)===wanted ||
+    slugify(getProductShopifyHandle(product))===wanted ||
+    slugify(product.sevdeskArticleNumber||"")===wanted;
 }
 
 function getCurrentProductImages(product){
@@ -277,6 +294,7 @@ async function init(){
     await loadProducts();
     await loadCategories();
     await loadSubcategories();
+    handleShopifyLaunch();
   }catch(err){
     showWarning(err.message);
   }
@@ -395,6 +413,27 @@ function buildCategoryFilter(){
   const cats=getCategories();
   sel.innerHTML='<option value="">Alle Kategorien</option>';
   cats.forEach(c=>{const opt=document.createElement("option");opt.value=c;opt.textContent=c;sel.appendChild(opt);});
+}
+
+function handleShopifyLaunch(){
+  const params=new URLSearchParams(window.location.search||"");
+  const wanted=params.get("handle")||params.get("product")||params.get("shopify_handle")||params.get("title")||"";
+  const variant=params.get("variant")||params.get("variant_id")||params.get("id")||"";
+  if(!wanted)return false;
+  const product=products.find(p=>productMatchesLaunch(p,wanted));
+  if(!product){
+    showWarning("Dieses Shopify-Produkt wurde im Protex Admin nicht gefunden: "+wanted);
+    return false;
+  }
+  product._incomingVariantId=variant;
+  shopifyLaunchContext={handle:wanted,variantId:variant,returnUrl:params.get("return")||params.get("return_url")||""};
+  filteredProducts=[product];
+  selectedCategory=product.category||"";
+  selectedSubcategory=product.subcategory||"";
+  buildDropdown();
+  if(isConfiguratorProduct(product))openConfigurator(0);
+  else openShopProduct(0);
+  return true;
 }
 
 function renderStartCategories(){
@@ -637,14 +676,18 @@ function getShopQuantities(){
 function buildDirectShopifyPayload(product,quantities){
   const items=[];
   const missing=[];
-  const handle=slugify(product.title||"");
+  const handle=getProductShopifyHandle(product)||slugify(product.title||"");
   const hasSizeVariantIds=product.shopifyVariantIds&&typeof product.shopifyVariantIds==="object"&&(product.sizes||[]).some(size=>findShopifyVariantId(product.shopifyVariantIds,size));
   const selectedColor=getSelectedShopColorVariant(product);
   const selectedColorName=selectedColor?.name||"";
   quantities.forEach(q=>{
     const size=hasSizeVariantIds?(q.size||""):"";
     const variantOption=selectedColorName||size;
-    const variantId=String(selectedColor?.shopifyVariantId||"").trim()||findShopifyVariantId(product.shopifyVariantIds,variantOption)||findShopifyVariantId(product.shopifyVariantIds,size);
+    const variantId=String(selectedColor?.shopifyVariantId||"").trim()||findShopifyVariantId(product.shopifyVariantIds,variantOption)||findShopifyVariantId(product.shopifyVariantIds,size)||getProductDefaultVariantId(product);
+    if(selectedColorName&&!variantId){
+      missing.push((product.title||"Produkt")+" / "+selectedColorName+" - Shopify Variant ID fehlt bei dieser Farbe");
+      return;
+    }
     if(!variantId && !handle){
       missing.push((product.title||"Produkt")+" / "+(size||"Größe"));
       return;
@@ -1079,6 +1122,8 @@ function addCurrentProductToRequest(){
     desc:prod.desc||"",
     category:prod.category||"",
     subcategory:prod.subcategory||"",
+    shopifyHandle:getProductShopifyHandle(prod),
+    shopifyVariantId:String(selectedColor?.shopifyVariantId||"").trim()||getProductDefaultVariantId(prod),
     shopifyVariantIds:prod.shopifyVariantIds||{},
     quantities,
     productImages:getCurrentProductImages(prod),
@@ -1285,7 +1330,7 @@ function buildShopifyCartPayload(clientEmail,clientPhone,notes,requestId){
   const missing=[];
   const printFeeMap=new Map();
   requestItems.forEach(item=>{
-    const handle=slugify(item.title||"");
+    const handle=item.shopifyHandle||slugify(item.title||"");
     (item.quantities||[]).forEach(q=>{
       const qty=Number(q.qty)||0;
       if(qty<=0)return;
@@ -1296,7 +1341,7 @@ function buildShopifyCartPayload(clientEmail,clientPhone,notes,requestId){
         printFeeMap.set(key,(printFeeMap.get(key)||0)+qty*printPositions);
       }
       const size=q.size||"";
-      const variantId=findShopifyVariantId(item.shopifyVariantIds,size);
+      const variantId=findShopifyVariantId(item.shopifyVariantIds,item.color)||findShopifyVariantId(item.shopifyVariantIds,size)||String(item.shopifyVariantId||"").trim();
       if(!variantId && !handle){
         missing.push((item.title||"Produkt")+" / "+(size||"Größe"));
         return;
@@ -1391,6 +1436,8 @@ async function sendOrder(){
   category: item.category || "",
   subcategory: item.subcategory || "",
   shopifyVariantIds: item.shopifyVariantIds || {},
+  shopifyHandle: item.shopifyHandle || "",
+  shopifyVariantId: item.shopifyVariantId || "",
   quantities: item.quantities || [],
   designTexts: item.designTexts || [],
   designSummary: designSummary(item.designs),

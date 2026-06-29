@@ -1,0 +1,42 @@
+{% comment %}
+  Protex Produktseiten-Button
+  Anzeigen, wenn das Shopify-Produkt den Tag "protex-configurator" hat
+  oder das Metafeld custom.protex_configurator aktiv ist.
+
+  Einbau in Shopify:
+  {% render 'protex-product-configurator-button', product: product, configurator_url: 'https://protex-studio.vercel.app/' %}
+{% endcomment %}
+
+{% assign protex_enabled = false %}
+{% if product.tags contains 'protex-configurator' or product.tags contains 'personalisierbar' %}
+  {% assign protex_enabled = true %}
+{% endif %}
+{% if product.metafields.custom.protex_configurator.value == true %}
+  {% assign protex_enabled = true %}
+{% endif %}
+
+{% if protex_enabled %}
+  {% assign protex_url = configurator_url | default: 'https://protex-studio.vercel.app/' %}
+  {% assign protex_variant = product.selected_or_first_available_variant %}
+  {% assign separator = '?' %}
+  {% if protex_url contains '?' %}
+    {% assign separator = '&' %}
+  {% endif %}
+  <div class="protex-product-configurator-button-wrap">
+    <a
+      class="button button--primary protex-product-configurator-button"
+      href="{{ protex_url }}{{ separator }}handle={{ product.handle | url_encode }}&variant={{ protex_variant.id }}&return={{ routes.cart_url | url_encode }}"
+    >
+      Jetzt konfigurieren
+    </a>
+  </div>
+  <style>
+    .protex-product-configurator-button-wrap {
+      margin: 1rem 0;
+    }
+    .protex-product-configurator-button {
+      width: 100%;
+      text-align: center;
+    }
+  </style>
+{% endif %}
