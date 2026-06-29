@@ -1204,7 +1204,6 @@ function exportShopifyCsv(){
   products.filter(p=>p.active!==false).forEach(p=>{
     const handle=uniqueShopifyHandle(p,usedHandles);
     const price=formatShopifyPrice(p.price);
-    const mainImage=shopifyImagesForProduct(p)[0]||"";
     const type=p.subcategory||p.category||"";
     const tags=[p.category,p.subcategory,(p.personalizable!==false&&p.productType!=="shop_only"?"protex-configurator":"")].filter(Boolean).join(", ");
     const sizes=cleanShopifySizes(p.sizes);
@@ -1213,7 +1212,6 @@ function exportShopifyCsv(){
     const hasColors=colors.length>0;
     const variants=buildShopifyVariants(handle,sizes,colors);
     variants.forEach((variant,idx)=>{
-      const colorImage=validShopifyImage(variant.color?.images?.front);
       rows.push(shopifyProductRow({
         product:p,
         handle,
@@ -1225,8 +1223,8 @@ function exportShopifyCsv(){
         option1Value:hasColors?variant.color.name:(hasSizes?variant.size:"Default Title"),
         option2Name:hasColors&&hasSizes?"Groesse":"",
         option2Value:hasColors&&hasSizes?variant.size:"",
-        productImage:idx===0?(colorImage||mainImage):"",
-        imagePosition:idx===0&&(colorImage||mainImage)?"1":"",
+        productImage:"",
+        imagePosition:"",
         variantImage:"",
         colorNames:colors.map(color=>color.name).join("; ")
       }));
@@ -1299,10 +1297,10 @@ function shopifyProductRow(data){
     "g",
     "TRUE",
     "manual",
-    data.productImage,
-    data.imagePosition,
-    title,
-    data.variantImage,
+    "",
+    "",
+    "",
+    "",
     "FALSE",
     title,
     desc,
