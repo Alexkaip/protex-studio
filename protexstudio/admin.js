@@ -1188,10 +1188,17 @@ function grossToNetPrice(grossValue,taxRateValue){
 }
 function exportShopifyCsv(){
   const rows=[[
-    "Handle","Title","Body (HTML)","Vendor","Product Category","Type","Tags","Published",
-    "Option1 Name","Option1 Value","Variant SKU","Variant Grams","Variant Inventory Tracker",
-    "Variant Inventory Qty","Variant Inventory Policy","Variant Fulfillment Service",
-    "Variant Price","Variant Requires Shipping","Variant Taxable","Image Src","Image Position","Status"
+    "Title","URL handle","Description","Vendor","Product category","Type","Tags","Published on online store","Status",
+    "SKU","Barcode","Option1 name","Option1 value","Option1 Linked To","Option2 name","Option2 value","Option2 Linked To",
+    "Option3 name","Option3 value","Option3 Linked To","Price","Compare-at price","Cost per item","Charge tax","Tax code",
+    "Unit price total measure","Unit price total measure unit","Unit price base measure","Unit price base measure unit",
+    "Inventory tracker","Inventory quantity","Continue selling when out of stock","Weight value (grams)","Weight unit for display",
+    "Requires shipping","Fulfillment service","Product image URL","Image position","Image alt text","Variant image URL",
+    "Gift card","SEO title","SEO description","Color (product.metafields.shopify.color-pattern)",
+    "Google Shopping / Google product category","Google Shopping / Gender","Google Shopping / Age group",
+    "Google Shopping / Manufacturer part number (MPN)","Google Shopping / Ad group name","Google Shopping / Ads labels",
+    "Google Shopping / Condition","Google Shopping / Custom product","Google Shopping / Custom label 0","Google Shopping / Custom label 1",
+    "Google Shopping / Custom label 2","Google Shopping / Custom label 3","Google Shopping / Custom label 4"
   ]];
   const usedHandles=new Set();
   products.filter(p=>p.active!==false).forEach(p=>{
@@ -1201,28 +1208,63 @@ function exportShopifyCsv(){
     const type=p.subcategory||p.category||"";
     const tags=[p.category,p.subcategory,(p.personalizable!==false&&p.productType!=="shop_only"?"protex-configurator":"")].filter(Boolean).join(", ");
     rows.push([
-      handle,
       p.title||handle,
+      handle,
       shopifyBody(p.desc),
       "Protex Austria",
       "",
       type,
       tags,
       "TRUE",
+      "Active",
+      handle,
+      "",
       "Title",
       "Default Title",
-      handle,
-      "0",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      price,
+      "",
+      "",
+      "TRUE",
+      "",
+      "",
+      "",
+      "",
+      "",
       "",
       "0",
-      "deny",
+      "DENY",
+      "0",
+      "g",
+      "TRUE",
       "manual",
-      price,
-      "TRUE",
-      "TRUE",
       mainImage,
       mainImage?"1":"",
-      "active"
+      p.title||handle,
+      "",
+      "FALSE",
+      p.title||handle,
+      String(p.desc||"").trim(),
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "New",
+      "FALSE",
+      "",
+      "",
+      "",
+      "",
+      ""
     ]);
   });
   const csv="\ufeff"+rows.map(row=>row.map(csvEscape).join(",")).join("\r\n");
@@ -1255,7 +1297,7 @@ function uniqueShopifyHandle(product,usedHandles){
 function shopifyImagesForProduct(p){
   const images=[p.imgFront,p.imgBack,p.imgLeftSleeve,p.imgRightSleeve]
     .map(v=>String(v||"").trim())
-    .filter(Boolean);
+    .filter(v=>/^https?:\/\//i.test(v));
   return [...new Set(images)];
 }
 
