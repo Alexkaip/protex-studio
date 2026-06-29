@@ -1195,38 +1195,35 @@ function exportShopifyCsv(){
   ]];
   const usedHandles=new Set();
   products.filter(p=>p.active!==false).forEach(p=>{
-    const sizes=cleanShopifySizes(p.sizes);
     const handle=uniqueShopifyHandle(p,usedHandles);
     const price=formatShopifyPrice(p.price);
     const mainImage=shopifyImagesForProduct(p)[0]||"";
     const type=p.subcategory||p.category||"";
     const tags=[p.category,p.subcategory,(p.personalizable!==false&&p.productType!=="shop_only"?"protex-configurator":"")].filter(Boolean).join(", ");
-    sizes.forEach((size,idx)=>{
-      rows.push([
-        handle,
-        p.title||handle,
-        shopifyBody(p.desc),
-        "Protex Austria",
-        "",
-        type,
-        tags,
-        "TRUE",
-        "Groesse",
-        size,
-        handle+"-"+slugify(size),
-        "0",
-        "",
-        "0",
-        "deny",
-        "manual",
-        price,
-        "TRUE",
-        "TRUE",
-        idx===0?mainImage:"",
-        idx===0?"1":"",
-        "active"
-      ]);
-    });
+    rows.push([
+      handle,
+      p.title||handle,
+      shopifyBody(p.desc),
+      "Protex Austria",
+      "",
+      type,
+      tags,
+      "TRUE",
+      "Title",
+      "Default Title",
+      handle,
+      "0",
+      "",
+      "0",
+      "deny",
+      "manual",
+      price,
+      "TRUE",
+      "TRUE",
+      mainImage,
+      mainImage?"1":"",
+      "active"
+    ]);
   });
   const csv="\ufeff"+rows.map(row=>row.map(csvEscape).join(",")).join("\r\n");
   downloadText(csv,"produkte-shopify-export.csv","text/csv;charset=utf-8");
