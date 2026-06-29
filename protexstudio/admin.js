@@ -1202,7 +1202,7 @@ function exportShopifyCsv(){
     sizes.forEach((size,idx)=>{
       rows.push([
         handle,
-        idx===0?(p.title||""):"",
+        p.title||handle,
         idx===0?shopifyBody(p.desc):"",
         idx===0?"Protex Austria":"",
         "",
@@ -1227,7 +1227,7 @@ function exportShopifyCsv(){
     });
     images.slice(1).forEach((image,idx)=>{
       rows.push([
-        handle,"","","","","","","","","","","","","","","","","","",
+        handle,p.title||handle,"","","","","","","","","","","","","","","","","",
         image,
         String(idx+2),
         ""
