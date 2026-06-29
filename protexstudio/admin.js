@@ -1193,9 +1193,10 @@ function exportShopifyCsv(){
     "Variant Inventory Qty","Variant Inventory Policy","Variant Fulfillment Service",
     "Variant Price","Variant Requires Shipping","Variant Taxable","Image Src","Image Position","Status"
   ]];
+  const usedHandles=new Set();
   products.filter(p=>p.active!==false).forEach(p=>{
     const sizes=(p.sizes&&p.sizes.length?p.sizes:["Standard"]);
-    const handle=String(p.shopifyVariantIds?._handle||"").trim()||slugify(p.title);
+    const handle=uniqueShopifyHandle(p,usedHandles);
     const price=formatShopifyPrice(p.price);
     const images=shopifyImagesForProduct(p);
     sizes.forEach((size,idx)=>{
@@ -1235,6 +1236,22 @@ function exportShopifyCsv(){
   });
   const csv="\ufeff"+rows.map(row=>row.map(csvEscape).join(",")).join("\r\n");
   downloadText(csv,"produkte-shopify-export.csv","text/csv;charset=utf-8");
+}
+
+function uniqueShopifyHandle(product,usedHandles){
+  const manual=String(product?.shopifyVariantIds?._handle||product?.shopifyHandle||"").trim();
+  const article=String(product?.sevdeskArticleNumber||product?.articleNumber||"").trim();
+  const base=manual||[product?.title,article].filter(Boolean).join("-");
+  let handle=slugify(base||"produkt");
+  if(!handle)handle="produkt";
+  const original=handle;
+  let counter=2;
+  while(usedHandles.has(handle)){
+    handle=original+"-"+counter;
+    counter++;
+  }
+  usedHandles.add(handle);
+  return handle;
 }
 
 function shopifyImagesForProduct(p){
