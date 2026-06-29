@@ -1195,10 +1195,10 @@ function exportShopifyCsv(){
   ]];
   const usedHandles=new Set();
   products.filter(p=>p.active!==false).forEach(p=>{
-    const sizes=(p.sizes&&p.sizes.length?p.sizes:["Standard"]);
+    const sizes=cleanShopifySizes(p.sizes);
     const handle=uniqueShopifyHandle(p,usedHandles);
     const price=formatShopifyPrice(p.price);
-    const images=shopifyImagesForProduct(p);
+    const mainImage=shopifyImagesForProduct(p)[0]||"";
     sizes.forEach((size,idx)=>{
       rows.push([
         handle,
@@ -1220,22 +1220,21 @@ function exportShopifyCsv(){
         price,
         "TRUE",
         "TRUE",
-        idx===0?(images[0]||""):"",
+        idx===0?mainImage:"",
         idx===0?"1":"",
         "active"
-      ]);
-    });
-    images.slice(1).forEach((image,idx)=>{
-      rows.push([
-        handle,p.title||handle,"","","","","","","","","","","","","","","","","",
-        image,
-        String(idx+2),
-        ""
       ]);
     });
   });
   const csv="\ufeff"+rows.map(row=>row.map(csvEscape).join(",")).join("\r\n");
   downloadText(csv,"produkte-shopify-export.csv","text/csv;charset=utf-8");
+}
+
+function cleanShopifySizes(sizes){
+  const cleaned=(Array.isArray(sizes)?sizes:[])
+    .map(size=>String(size||"").trim())
+    .filter(Boolean);
+  return cleaned.length?cleaned:["Standard"];
 }
 
 function uniqueShopifyHandle(product,usedHandles){
