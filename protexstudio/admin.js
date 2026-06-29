@@ -1213,7 +1213,7 @@ function exportShopifyCsv(){
     const hasColors=colors.length>0;
     const variants=buildShopifyVariants(handle,sizes,colors);
     variants.forEach((variant,idx)=>{
-      const variantImage=validShopifyImage(variant.color?.images?.front)||mainImage;
+      const colorImage=validShopifyImage(variant.color?.images?.front);
       rows.push(shopifyProductRow({
         product:p,
         handle,
@@ -1225,9 +1225,9 @@ function exportShopifyCsv(){
         option1Value:hasColors?variant.color.name:(hasSizes?variant.size:"Default Title"),
         option2Name:hasColors&&hasSizes?"Groesse":"",
         option2Value:hasColors&&hasSizes?variant.size:"",
-        productImage:idx===0?mainImage:"",
-        imagePosition:idx===0&&mainImage?"1":"",
-        variantImage:variantImage,
+        productImage:idx===0?(colorImage||mainImage):"",
+        imagePosition:idx===0&&(colorImage||mainImage)?"1":"",
+        variantImage:"",
         colorNames:colors.map(color=>color.name).join("; ")
       }));
     });
