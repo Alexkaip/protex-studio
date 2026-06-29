@@ -1207,65 +1207,30 @@ function exportShopifyCsv(){
     const mainImage=shopifyImagesForProduct(p)[0]||"";
     const type=p.subcategory||p.category||"";
     const tags=[p.category,p.subcategory,(p.personalizable!==false&&p.productType!=="shop_only"?"protex-configurator":"")].filter(Boolean).join(", ");
-    rows.push([
-      p.title||handle,
-      handle,
-      shopifyBody(p.desc),
-      "Protex Austria",
-      "",
-      type,
-      tags,
-      "TRUE",
-      "Active",
-      handle,
-      "",
-      "Title",
-      "Default Title",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      price,
-      "",
-      "",
-      "TRUE",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "0",
-      "DENY",
-      "0",
-      "g",
-      "TRUE",
-      "manual",
-      mainImage,
-      mainImage?"1":"",
-      p.title||handle,
-      "",
-      "FALSE",
-      p.title||handle,
-      String(p.desc||"").trim(),
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "New",
-      "FALSE",
-      "",
-      "",
-      "",
-      "",
-      ""
-    ]);
+    const sizes=cleanShopifySizes(p.sizes);
+    const hasSizes=!(sizes.length===1&&sizes[0]==="Standard");
+    const colors=normalizeColorVariants(p.colorVariants).filter(color=>color.name);
+    const hasColors=colors.length>0;
+    const variants=buildShopifyVariants(handle,sizes,colors);
+    variants.forEach((variant,idx)=>{
+      const variantImage=validShopifyImage(variant.color?.images?.front)||mainImage;
+      rows.push(shopifyProductRow({
+        product:p,
+        handle,
+        type,
+        tags,
+        price,
+        sku:variant.sku,
+        option1Name:hasColors?"Farbe":(hasSizes?"Groesse":"Title"),
+        option1Value:hasColors?variant.color.name:(hasSizes?variant.size:"Default Title"),
+        option2Name:hasColors&&hasSizes?"Groesse":"",
+        option2Value:hasColors&&hasSizes?variant.size:"",
+        productImage:idx===0?mainImage:"",
+        imagePosition:idx===0&&mainImage?"1":"",
+        variantImage:variantImage,
+        colorNames:colors.map(color=>color.name).join("; ")
+      }));
+    });
   });
   const csv="\ufeff"+rows.map(row=>row.map(csvEscape).join(",")).join("\r\n");
   downloadText(csv,"produkte-shopify-export.csv","text/csv;charset=utf-8");
@@ -1274,8 +1239,93 @@ function exportShopifyCsv(){
 function cleanShopifySizes(sizes){
   const cleaned=(Array.isArray(sizes)?sizes:[])
     .map(size=>String(size||"").trim())
-    .filter(Boolean);
+    .filter(size=>size&&size!=="00"&&!/^default title$/i.test(size)&&!/^standard$/i.test(size));
   return cleaned.length?cleaned:["Standard"];
+}
+
+function buildShopifyVariants(handle,sizes,colors){
+  if(colors.length){
+    const usableSizes=sizes.length?sizes:["Standard"];
+    return colors.flatMap(color=>usableSizes.map(size=>({
+      color,
+      size,
+      sku:[handle,slugify(color.name),size==="Standard"?"":slugify(size)].filter(Boolean).join("-")
+    })));
+  }
+  return sizes.map(size=>({
+    color:null,
+    size,
+    sku:size==="Standard"?handle:[handle,slugify(size)].filter(Boolean).join("-")
+  }));
+}
+
+function shopifyProductRow(data){
+  const title=data.product?.title||data.handle;
+  const desc=String(data.product?.desc||"").trim();
+  return [
+    title,
+    data.handle,
+    shopifyBody(desc),
+    "Protex Austria",
+    "",
+    data.type,
+    data.tags,
+    "TRUE",
+    "Active",
+    data.sku,
+    "",
+    data.option1Name,
+    data.option1Value,
+    "",
+    data.option2Name,
+    data.option2Value,
+    "",
+    "",
+    "",
+    "",
+    data.price,
+    "",
+    "",
+    "TRUE",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "0",
+    "DENY",
+    "0",
+    "g",
+    "TRUE",
+    "manual",
+    data.productImage,
+    data.imagePosition,
+    title,
+    data.variantImage,
+    "FALSE",
+    title,
+    desc,
+    data.colorNames||"",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "New",
+    "FALSE",
+    "",
+    "",
+    "",
+    "",
+    ""
+  ];
+}
+
+function validShopifyImage(value){
+  const url=String(value||"").trim();
+  return /^https?:\/\//i.test(url)?url:"";
 }
 
 function uniqueShopifyHandle(product,usedHandles){
