@@ -1199,16 +1199,18 @@ function exportShopifyCsv(){
     const handle=uniqueShopifyHandle(p,usedHandles);
     const price=formatShopifyPrice(p.price);
     const mainImage=shopifyImagesForProduct(p)[0]||"";
+    const type=p.subcategory||p.category||"";
+    const tags=[p.category,p.subcategory,(p.personalizable!==false&&p.productType!=="shop_only"?"protex-configurator":"")].filter(Boolean).join(", ");
     sizes.forEach((size,idx)=>{
       rows.push([
         handle,
         p.title||handle,
-        idx===0?shopifyBody(p.desc):"",
-        idx===0?"Protex Austria":"",
+        shopifyBody(p.desc),
+        "Protex Austria",
         "",
-        idx===0?(p.subcategory||p.category||""):"",
-        idx===0?[p.category,p.subcategory,(p.personalizable!==false&&p.productType!=="shop_only"?"protex-configurator":"")].filter(Boolean).join(", "):"",
-        idx===0?"TRUE":"",
+        type,
+        tags,
+        "TRUE",
         "Groesse",
         size,
         handle+"-"+slugify(size),
