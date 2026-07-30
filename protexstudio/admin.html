@@ -141,6 +141,39 @@
     .admin-category-header:first-of-type {
       margin-top: 10px;
     }
+    /* Tab Styling */
+    .tab-row {
+      display: flex !important;
+      gap: 12px;
+      margin-top: 10px;
+      margin-bottom: 24px;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 8px;
+      width: 100%;
+    }
+    .tab-btn {
+      background: none !important;
+      border: none !important;
+      padding: 10px 24px !important;
+      font-size: 1.05rem !important;
+      font-weight: 600 !important;
+      color: #64748b !important;
+      cursor: pointer !important;
+      border-bottom: 2px solid transparent !important;
+      margin-bottom: -10px !important;
+      transition: all 0.2s !important;
+      outline: none !important;
+    }
+    .tab-btn.active {
+      color: #2563eb !important;
+      border-bottom-color: #2563eb !important;
+    }
+    .tab-btn:hover {
+      color: #1e293b !important;
+    }
+    .card.hidden {
+      display: none !important;
+    }
   </style>
 </head>
 <body>
@@ -165,7 +198,12 @@
     <div id="login-status" class="sub" style="margin-top:10px"></div>
   </section>
   <section id="admin-area" class="admin-layout hidden">
-    <div class="card">
+    <div class="tab-row">
+      <button class="tab-btn active" id="tab-create-btn" type="button">＋ Produkt anlegen</button>
+      <button class="tab-btn" id="tab-list-btn" type="button">📋 Produktübersicht</button>
+    </div>
+
+    <div class="card" id="create-card">
       <h2 id="form-title">Produkt anlegen</h2>
       <input type="hidden" id="edit-id">
       <div class="form-group"><label>Produktname</label><input type="text" id="p-title"></div>
@@ -184,7 +222,7 @@
       <div class="btn-row"><button class="btn btn-secondary" id="csv-export-btn" type="button">Export</button></div>
       <div class="notice warn">CSV importiert Daten. Bilder bitte danach beim Produkt hochladen.</div>
     </div>
-    <div class="card">
+    <div class="card hidden" id="list-card">
       <h2>Produkte</h2>
       <div class="btn-row"><input type="text" id="search" placeholder="Suchen..."><button class="btn btn-light" id="reload-btn" type="button">Neu laden</button></div>
       <div id="product-list" class="product-list"></div>
@@ -231,6 +269,28 @@
     if (modal) {
       modal.addEventListener('click', (e) => {
         if (e.target === modal) modal.classList.add('hidden');
+      });
+    }
+
+    // Tab-Umschaltlogik
+    const tabCreate = document.getElementById('tab-create-btn');
+    const tabList = document.getElementById('tab-list-btn');
+    const createCard = document.getElementById('create-card');
+    const listCard = document.getElementById('list-card');
+    
+    if (tabCreate && tabList && createCard && listCard) {
+      tabCreate.addEventListener('click', () => {
+        tabCreate.classList.add('active');
+        tabList.classList.remove('active');
+        createCard.classList.remove('hidden');
+        listCard.classList.add('hidden');
+      });
+      
+      tabList.addEventListener('click', () => {
+        tabList.classList.add('active');
+        tabCreate.classList.remove('active');
+        listCard.classList.remove('hidden');
+        createCard.classList.add('hidden');
       });
     }
   });

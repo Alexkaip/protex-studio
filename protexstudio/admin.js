@@ -61,10 +61,59 @@ function createProductRow(p){
 }
 
 function actionBtn(text,cls,fn){const b=document.createElement("button");b.className=cls;b.type="button";b.textContent=text;b.addEventListener("click",fn);return b}
-function editProduct(p){document.getElementById("form-title").textContent="Produkt bearbeiten";document.getElementById("edit-id").value=p.id;document.getElementById("p-title").value=p.title;document.getElementById("p-category").value=p.category;document.getElementById("p-desc").value=p.desc;document.getElementById("p-price").value=p.price;document.getElementById("p-sizes").value=(p.sizes||[]).join(",");document.getElementById("p-active").checked=p.active;window.scrollTo({top:0,behavior:"smooth"})}
+function editProduct(p){
+  document.getElementById("form-title").textContent="Produkt bearbeiten";
+  document.getElementById("edit-id").value=p.id;
+  document.getElementById("p-title").value=p.title;
+  document.getElementById("p-category").value=p.category;
+  document.getElementById("p-desc").value=p.desc;
+  document.getElementById("p-price").value=p.price;
+  document.getElementById("p-sizes").value=(p.sizes||[]).join(",");
+  document.getElementById("p-active").checked=p.active;
+  const tab = document.getElementById("tab-create-btn");
+  if(tab) tab.click();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
 function resetForm(){document.getElementById("form-title").textContent="Produkt anlegen";document.getElementById("edit-id").value="";["p-title","p-desc","p-price"].forEach(id=>document.getElementById(id).value="");document.getElementById("p-category").value="";document.getElementById("p-sizes").value="S,M,L,XL,XXL";document.getElementById("p-front").value="";document.getElementById("p-back").value="";document.getElementById("p-active").checked=true}
 async function uploadFile(file,prefix){if(!file)return"";const ext=(file.name.split(".").pop()||"jpg").toLowerCase();const filename=prefix+"-"+Date.now()+"-"+Math.random().toString(16).slice(2)+"."+ext;const{error}=await supabaseClient.storage.from(window.PROTEX_CONFIG.STORAGE_BUCKET).upload(filename,file,{cacheControl:"3600",upsert:false});if(error)throw error;const{data}=supabaseClient.storage.from(window.PROTEX_CONFIG.STORAGE_BUCKET).getPublicUrl(filename);return data.publicUrl}
-async function saveProduct(){const status=document.getElementById("save-status");status.textContent="Speichern...";try{const id=document.getElementById("edit-id").value,old=id?products.find(p=>String(p.id)===String(id)):null;const frontFile=document.getElementById("p-front").files[0],backFile=document.getElementById("p-back").files[0];let imgFront=old?.imgFront||"",imgBack=old?.imgBack||"";if(frontFile)imgFront=await uploadFile(frontFile,"front");if(backFile)imgBack=await uploadFile(backFile,"back");if(!imgFront)throw new Error("Bitte ein Vorderseitenbild hochladen.");const product={title:document.getElementById("p-title").value.trim(),category:document.getElementById("p-category").value.trim(),desc:document.getElementById("p-desc").value.trim(),price:document.getElementById("p-price").value.trim(),sizes:splitList(document.getElementById("p-sizes").value),imgFront,imgBack,active:document.getElementById("p-active").checked};if(!product.title)throw new Error("Produktname fehlt.");const row=rowFromProduct(product);if(id){const{error}=await supabaseClient.from("products").update(row).eq("id",id);if(error)throw error}else{const{error}=await supabaseClient.from("products").insert(row);if(error)throw error}status.textContent="Gespeichert.";resetForm();await loadAll()}catch(err){status.textContent=err.message}}
+async function saveProduct(){
+  const status=document.getElementById("save-status");
+  status.textContent="Speichern...";
+  try{
+    const id=document.getElementById("edit-id").value,old=id?products.find(p=>String(p.id)===String(id)):null;
+    const frontFile=document.getElementById("p-front").files[0],backFile=document.getElementById("p-back").files[0];
+    let imgFront=old?.imgFront||"",imgBack=old?.imgBack||"";
+    if(frontFile)imgFront=await uploadFile(frontFile,"front");
+    if(backFile)imgBack=await uploadFile(backFile,"back");
+    if(!imgFront)throw new Error("Bitte ein Vorderseitenbild hochladen.");
+    const product={
+      title:document.getElementById("p-title").value.trim(),
+      category:document.getElementById("p-category").value.trim(),
+      desc:document.getElementById("p-desc").value.trim(),
+      price:document.getElementById("p-price").value.trim(),
+      sizes:splitList(document.getElementById("p-sizes").value),
+      imgFront,
+      imgBack,
+      active:document.getElementById("p-active").checked
+    };
+    if(!product.title)throw new Error("Produktname fehlt.");
+    const row=rowFromProduct(product);
+    if(id){
+      const{error}=await supabaseClient.from("products").update(row).eq("id",id);
+      if(error)throw error;
+    }else{
+      const{error}=await supabaseClient.from("products").insert(row);
+      if(error)throw error;
+    }
+    status.textContent="Gespeichert.";
+    resetForm();
+    await loadAll();
+    const tab = document.getElementById("tab-list-btn");
+    if(tab) tab.click();
+  }catch(err){
+    status.textContent=err.message;
+  }
+}
 async function duplicateProduct(p){const row=rowFromProduct({...p,title:p.title+" Kopie"});const{error}=await supabaseClient.from("products").insert(row);if(error)alert(error.message);await loadAll()}
 async function deleteProduct(id){if(!confirm("Produkt wirklich löschen?"))return;const{error}=await supabaseClient.from("products").delete().eq("id",id);if(error)alert(error.message);await loadAll()}
 function downloadTemplate(){
