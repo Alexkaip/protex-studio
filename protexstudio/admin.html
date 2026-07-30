@@ -68,36 +68,11 @@
     body:has(#admin-area:not(.hidden)) #open-categories-btn {
       display: inline-block;
     }
-    /* Optimierte Layout-Darstellung ohne linke Spalte */
+    /* Vertikal gestapeltes Layout statt Spalten nebeneinander */
     .admin-layout {
-      grid-template-columns: 1fr 1fr;
-    }
-    @media(max-width: 1024px) {
-      .admin-layout {
-        grid-template-columns: 1fr;
-      }
-    }
-    /* Modal Input Row Fix */
-    .modal-input-row {
       display: flex !important;
-      gap: 10px;
-      margin-top: 8px;
-      margin-bottom: 0 !important;
-      width: 100%;
-    }
-    .modal-input-row input {
-      flex: 1 !important;
-      width: auto !important;
-      margin-bottom: 0 !important;
-      height: 38px;
-      box-sizing: border-box;
-    }
-    .modal-input-row button {
-      margin: 0 !important;
-      height: 38px;
-      box-sizing: border-box;
-      white-space: nowrap;
-      flex-shrink: 0;
+      flex-direction: column !important;
+      gap: 24px !important;
     }
     /* Header Button Row Fix */
     .header-btn-row {
@@ -110,6 +85,43 @@
     }
     .header-btn-row .btn {
       margin: 0 !important;
+    }
+    /* Modal Styling Verbesserungen */
+    .modal-card input[type=text] {
+      width: 100% !important;
+      padding: 12px 14px !important;
+      font-size: 1rem !important;
+      border-radius: 10px !important;
+      border: 1px solid #cbd5e1 !important;
+      margin-bottom: 12px !important;
+      box-sizing: border-box !important;
+    }
+    .modal-card button.btn {
+      width: 100% !important;
+      padding: 12px !important;
+      font-size: 1rem !important;
+      font-weight: 600 !important;
+      border-radius: 10px !important;
+      margin: 0 !important;
+      box-sizing: border-box !important;
+      background: #2563eb !important;
+      color: white !important;
+      border: none !important;
+      cursor: pointer !important;
+      transition: background 0.2s !important;
+    }
+    .modal-card button.btn:hover {
+      background: #1d4ed8 !important;
+    }
+    /* Kategorien-Chips */
+    .category-chip {
+      background: #eff6ff !important;
+      color: #1e40af !important;
+      border: 1px solid #bfdbfe !important;
+      padding: 6px 14px !important;
+      border-radius: 20px !important;
+      font-weight: 600 !important;
+      font-size: 0.9rem !important;
     }
     /* Kategorien-Überschrift in der Admin-Produktliste */
     .admin-category-header {
@@ -188,11 +200,9 @@
       <button class="close-btn" id="close-categories-btn" type="button">&times;</button>
     </header>
     <div class="form-group">
-      <label>Neue Kategorie hinzufügen</label>
-      <div class="modal-input-row">
-        <input type="text" id="new-category" placeholder="z.B. T-Shirt, Hose, Serien">
-        <button class="btn" id="add-category-btn" type="button">Hinzufügen</button>
-      </div>
+      <label style="margin-bottom: 8px; display: block; font-weight: 600;">Neue Kategorie hinzufügen</label>
+      <input type="text" id="new-category" placeholder="z.B. T-Shirt, Hose, Serien">
+      <button class="btn" id="add-category-btn" type="button">Kategorie hinzufügen</button>
     </div>
     <h3 style="margin-top: 24px; margin-bottom: 12px; font-size: 1.1rem; border-bottom: 1px solid #eee; padding-bottom: 6px;">Bestehende Kategorien</h3>
     <div id="category-list" class="category-list"></div>
