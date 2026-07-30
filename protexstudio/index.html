@@ -1,6 +1,56 @@
 <!DOCTYPE html>
 <html lang="de">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Protex Studio - Kunden-Konfigurator</title><link href="https://fonts.googleapis.com/css2?family=Anton&family=Bangers&family=Bebas+Neue&family=Lobster&family=Montserrat:wght@400;700;900&family=Permanent+Marker&family=Orbitron:wght@400;700;900&family=Oswald:wght@400;700&family=Pacifico&family=Poppins:wght@400;700;900&family=Rajdhani:wght@400;700&family=Roboto:wght@400;700;900&family=Teko:wght@400;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css"></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Protex Studio - Kunden-Konfigurator</title><link href="https://fonts.googleapis.com/css2?family=Anton&family=Bangers&family=Bebas+Neue&family=Lobster&family=Montserrat:wght@400;700;900&family=Permanent+Marker&family=Orbitron:wght@400;700;900&family=Oswald:wght@400;700&family=Pacifico&family=Poppins:wght@400;700;900&family=Rajdhani:wght@400;700&family=Roboto:wght@400;700;900&family=Teko:wght@400;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css">
+<style>
+  /* Profi-Produktkarten Layout */
+  .start-product-card {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    height: 100% !important;
+    min-height: 380px !important;
+    box-sizing: border-box !important;
+  }
+  .start-product-img {
+    height: 150px !important;
+    width: 100% !important;
+    flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    margin-bottom: 12px !important;
+  }
+  .start-product-img img {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    object-fit: contain !important;
+  }
+  .start-product-name {
+    font-weight: 800 !important;
+    font-size: 1.05rem !important;
+    color: #0f172a !important;
+    margin-top: 0 !important;
+    margin-bottom: 6px !important;
+  }
+  .start-product-card .sub {
+    flex-grow: 1 !important;
+    font-size: 0.85rem !important;
+    color: #64748b !important;
+    margin-bottom: 12px !important;
+    line-height: 1.4 !important;
+  }
+  .start-product-card .dropdown-price {
+    font-weight: 700 !important;
+    font-size: 1.1rem !important;
+    color: #2563eb !important;
+    margin-top: auto !important;
+  }
+</style>
+</head>
 <body>
 
 <header class="header container"><div><div class="brand">Protex Studio</div><div class="sub">Produkt-Konfigurator</div></div><img class="header-logo" src="assets/protex-logo.png?v=36" alt="Protex Austria"></header>
