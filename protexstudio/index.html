@@ -88,18 +88,22 @@
 <div id="config-warning" class="notice warn hidden"></div>
 <button class="btn btn-light" id="back-to-products-btn" type="button">← Zur Produktübersicht</button>
 
-<!-- Personalisierung an/aus Toggle -->
-<div style="margin: 16px 0; padding: 12px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px;">
-  <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 700; color: #1e40af;">
-    <input type="checkbox" id="personalize-toggle" checked style="width: auto; height: 18px; margin: 0; cursor: pointer;">
-    Produkt mit Logo/Text gestalten
-  </label>
-</div>
-
 <h2>1. Ausgewähltes Produkt</h2>
 <div class="form-group hidden"><label>Kategorie</label><select id="category-filter"><option value="">Alle Kategorien</option></select></div>
 <div class="dropdown hidden" id="product-dropdown"><div class="dropdown-selected" id="dropdown-trigger">Produkte werden geladen...</div><div class="dropdown-options" id="dropdown-options-container"></div></div>
-<div class="product-info-box"><div id="curr-title"><strong>Kein Produkt</strong></div><div id="curr-desc" class="sub">Bitte Produkt auswählen.</div><div id="curr-price" class="dropdown-price"></div></div>
+<div class="product-info-box">
+  <div id="curr-title"><strong>Kein Produkt</strong></div>
+  <div id="curr-desc" class="sub">Bitte Produkt auswählen.</div>
+  <div id="curr-price" class="dropdown-price"></div>
+  
+  <!-- Personalisierung an/aus Toggle (Direkt unter dem Preis, extrem auffällig!) -->
+  <div style="margin-top: 14px; padding: 12px; background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 700; color: #166534; font-size: 0.95rem; margin: 0;">
+      <input type="checkbox" id="personalize-toggle" checked style="width: 20px; height: 20px; margin: 0; cursor: pointer; accent-color: #22c55e;">
+      Mit Logo/Text personalisieren
+    </label>
+  </div>
+</div>
 
 <div id="design-section-wrapper">
   <h2>2. Seite gestalten</h2>
