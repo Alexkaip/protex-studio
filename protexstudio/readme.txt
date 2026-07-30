@@ -1,16 +1,24 @@
-PROTEX Studio v37 - Mengenrabatt Fix
+PROTEX Projekt v17 - Kategorien + Vercel E-Mail Versand
 
-Geändert:
-- Mengenrabatt wird wieder berechnet, auch wenn Supabase keine gültige Rabattstaffel liefert.
-- Kostenbox bleibt sichtbar: Produktpreis, Druckkosten, Warenwert, Zwischensumme, Endpreis.
-- Mengenrabatt-Zeile erscheint nur, wenn tatsächlich Rabatt aktiv ist.
-- Gutscheincode-Rabatt bleibt nur sichtbar, wenn ein gültiger Code aktiv ist.
-- Logo im Header größer dargestellt.
+Neu:
+- Kundenansicht startet mit Kategorie-Auswahl.
+- Nach Klick auf eine Kategorie werden nur passende Produkte angezeigt.
+- Erst mit Klick auf ein Produkt öffnet sich der Produktkonfigurator.
+- Netlify-Formular wurde entfernt.
+- Anfrage-Versand läuft jetzt über Vercel API: /api/send-order
+- Layoutbilder werden als Anhänge mitgeschickt.
 
-Nach Upload: Vercel Deployment abwarten und STRG + F5 drücken.
+Wichtig für Vercel:
+1. Dateien komplett in dein GitHub-Projekt hochladen und alte Dateien ersetzen.
+2. In Vercel unter Project Settings > Environment Variables diese Werte anlegen:
+   RESEND_API_KEY = dein Resend API Key
+   ORDER_TO_EMAIL = office@protex-austria.at
+   ORDER_FROM_EMAIL = Protex Studio <onboarding@resend.dev>
 
-V39 Excel/CSV Export Bilder:
-- CSV Export schreibt jedes Produkt in eine eigene Zeile mit echten Zeilenumbrüchen.
-- Export enthält Bildlinks für Vorderseite, Rückseite, linker Ärmel und rechter Ärmel.
-- CSV Import erkennt die Überschriften und übernimmt Bildlinks direkt.
-- Vorlage: produkt-vorlage.csv und produkt-vorlage.xlsx
+Hinweis:
+- Mit onboarding@resend.dev kannst du am Anfang testen.
+- Für den echten Betrieb solltest du später deine Domain bei Resend bestätigen und z.B. Protex Studio <office@protex-austria.at> verwenden.
+- Danach in Vercel neu deployen.
+
+Admin:
+- /admin.html
