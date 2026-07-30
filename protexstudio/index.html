@@ -53,6 +53,26 @@
     color: #2563eb !important;
     margin-top: 10px !important;
   }
+  /* Sticky-Split Layout für Desktop (Links Bild fest, Rechts Leiste scrollbar) */
+  @media (min-width: 901px) {
+    #configurator-screen {
+      display: grid !important;
+      grid-template-columns: minmax(0, 1fr) 420px !important;
+      gap: 16px !important;
+      height: 650px !important;
+      overflow: hidden !important;
+    }
+    #configurator-screen .editor-section {
+      height: 100% !important;
+      min-height: 0 !important;
+      max-height: 650px !important;
+    }
+    #configurator-screen aside {
+      height: 100% !important;
+      overflow-y: auto !important;
+      max-height: 650px !important;
+    }
+  }
 </style>
 </head>
 <body>
