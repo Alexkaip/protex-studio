@@ -222,6 +222,23 @@ async function init(){
   }
 
   setupCanvasEvents();
+  
+  // Register search input listeners
+  const searchInput = document.getElementById("catalog-search-input");
+  if(searchInput) {
+    searchInput.addEventListener("input", (e) => {
+      searchKeyword = e.target.value;
+      renderCatalogProducts();
+    });
+  }
+  const clearBtn = document.getElementById("catalog-clear-search-btn");
+  if(clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      if(searchInput) searchInput.value = "";
+      searchKeyword = "";
+      renderCatalogProducts();
+    });
+  }
 }
 
 function showWarning(msg){
@@ -250,6 +267,8 @@ function bindEvents(){
   bindOptional("center-h-btn",centerSelectedHorizontal);
   document.getElementById("add-request-btn").addEventListener("click",addCurrentProductToRequest);
   document.getElementById("download-design-btn").addEventListener("click",downloadAllRequestDesignImages);
+  document.getElementById("print-sheet-btn").addEventListener("click",printApprovalSheet);
+  document.getElementById("create-portal-order-btn").addEventListener("click",sendOrderToParent);
   document.getElementById("send-order-btn").addEventListener("click",sendOrder);
   const voucherInput=document.getElementById("voucher-code");
   if(voucherInput){voucherInput.addEventListener("input",()=>{updateTotal();renderRequestList();});}
@@ -274,9 +293,67 @@ function bindOptional(id,fn){
 
 async function loadProducts(){
   dropdownTrigger.textContent="Produkte werden geladen...";
-  const {data,error}=await supabaseClient.from("products").select("*").eq("active",true).order("id",{ascending:true});
-  if(error)throw error;
-  products=(data||[]).map(productFromRow);
+  
+  let parentProducts = null;
+  try {
+    parentProducts = window.parent && window.parent.__PROTEX_PRODUCTS__;
+  } catch (e) {
+    console.warn("Failed to access window.parent.__PROTEX_PRODUCTS__:", e);
+  }
+
+  if (parentProducts) {
+    products = parentProducts.map(p => ({
+      id: p.id,
+      title: p.name || "",
+      desc: p.description || "",
+      price: p.salesPrice || 0,
+      category: p.category || "",
+      sizes: p.sizes ? p.sizes.split(",").map(s => s.trim()) : ["S","M","L","XL","XXL"],
+      imgFront: p.imageUrl || "",
+      imgBack: p.imageUrlBack || "",
+      imgLeftSleeve: p.imageUrlLeftSleeve || "",
+      imgRightSleeve: p.imageUrlRightSleeve || "",
+      active: p.active !== false
+    }));
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/state");
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.state && data.state.products) {
+        products = data.state.products.map(p => ({
+          id: p.id,
+          title: p.name || "",
+          desc: p.description || "",
+          price: p.salesPrice || 0,
+          category: p.category || "",
+          sizes: p.sizes ? p.sizes.split(",").map(s => s.trim()) : ["S","M","L","XL","XXL"],
+          imgFront: p.imageUrl || "",
+          imgBack: p.imageUrlBack || "",
+          imgLeftSleeve: p.imageUrlLeftSleeve || "",
+          imgRightSleeve: p.imageUrlRightSleeve || "",
+          active: p.active !== false
+        }));
+        return;
+      }
+    }
+  } catch (e) {
+    console.warn("Fallback to /api/state failed:", e);
+  }
+
+  try {
+    const {data,error}=await supabaseClient.from("products").select("*").eq("active",true).order("id",{ascending:true});
+    if(!error && data) {
+      products=(data||[]).map(productFromRow);
+      return;
+    }
+  } catch (e) {
+    console.warn("Fallback to Supabase failed:", e);
+  }
+
+  throw new Error("Produktdaten konnten nicht geladen werden.");
 }
 
 async function loadCategories(){
@@ -305,76 +382,100 @@ function buildCategoryFilter(){
   cats.forEach(c=>{const opt=document.createElement("option");opt.value=c;opt.textContent=c;sel.appendChild(opt);});
 }
 
-function renderStartCategories(){
-  const cats=getCategories();
-  startProductArea.classList.add("hidden");
-  startCategoryGrid.classList.remove("hidden");
-  startCategoryGrid.innerHTML="";
+let currentCategory = "";
+let searchKeyword = "";
 
+function renderStartCategories(){
+  const list = document.getElementById("catalog-category-list");
+  if(!list) return;
+  list.innerHTML = "";
+
+  const cats = getCategories();
   if(!products.length){
-    startCategoryGrid.innerHTML='<div class="notice">Noch keine aktiven Produkte vorhanden.</div>';
+    list.innerHTML = '<div class="sub">Keine Produkte</div>';
     return;
   }
 
-  const allBtn=createCategoryCard("Alle Produkte",products.length,products[0]?.imgFront||"",()=>showProductsForCategory(""));
-  startCategoryGrid.appendChild(allBtn);
-
-  cats.forEach(cat=>{
-    const catProducts=products.filter(p=>p.category===cat);
-    const img=catProducts.find(p=>p.imgFront)?.imgFront||"";
-    startCategoryGrid.appendChild(createCategoryCard(cat,catProducts.length,img,()=>showProductsForCategory(cat)));
+  // "Alle Produkte" button
+  const allBtn = document.createElement("button");
+  allBtn.className = "catalog-cat-btn" + (currentCategory === "" ? " active" : "");
+  allBtn.type = "button";
+  allBtn.innerHTML = '<span>Alle Produkte</span><span class="badge">' + products.length + '</span>';
+  allBtn.addEventListener("click", () => {
+    selectCatalogCategory("");
   });
+  list.appendChild(allBtn);
+
+  // Dynamic category buttons
+  cats.forEach(cat => {
+    const count = products.filter(p => p.category === cat).length;
+    const btn = document.createElement("button");
+    btn.className = "catalog-cat-btn" + (currentCategory === cat ? " active" : "");
+    btn.type = "button";
+    btn.innerHTML = '<span>' + cat + '</span><span class="badge">' + count + '</span>';
+    btn.addEventListener("click", () => {
+      selectCatalogCategory(cat);
+    });
+    list.appendChild(btn);
+  });
+
+  renderCatalogProducts();
 }
 
-function createCategoryCard(title,count,img,clickHandler){
-  const card=document.createElement("button");
-  card.className="start-category-card";
-  card.type="button";
-  card.innerHTML='<div class="start-category-img">'+(img?'<img src="'+img+'" alt="">':'<span>📦</span>')+'</div><div class="start-category-title"></div><div class="sub"></div>';
-  card.querySelector(".start-category-title").textContent=title;
-  card.querySelector(".sub").textContent=count+" Produkt"+(count===1?"":"e");
-  card.addEventListener("click",clickHandler);
-  return card;
+function selectCatalogCategory(cat) {
+  currentCategory = cat;
+  const buttons = document.querySelectorAll(".catalog-cat-btn");
+  buttons.forEach(btn => {
+    const isAll = cat === "" && btn.querySelector("span").textContent === "Alle Produkte";
+    const isCat = btn.querySelector("span").textContent === cat;
+    btn.classList.toggle("active", isAll || isCat);
+  });
+  renderCatalogProducts();
+}
+
+function renderCatalogProducts() {
+  const grid = document.getElementById("start-product-grid");
+  if(!grid) return;
+  grid.innerHTML = "";
+
+  let filtered = products.filter(p => !currentCategory || p.category === currentCategory);
+  if(searchKeyword) {
+    const q = searchKeyword.toLowerCase();
+    filtered = filtered.filter(p => 
+      p.title.toLowerCase().includes(q) || 
+      (p.desc && p.desc.toLowerCase().includes(q))
+    );
+  }
+
+  if(!filtered.length) {
+    grid.innerHTML = '<div class="notice">Keine Produkte in dieser Auswahl gefunden.</div>';
+    return;
+  }
+
+  filtered.forEach(p => {
+    const card = document.createElement("button");
+    card.className = "start-product-card";
+    card.type = "button";
+    card.innerHTML = '<div class="start-product-img"><img src="' + (p.imgFront || "") + '" alt=""></div><div class="start-product-name"></div><div class="dropdown-price"></div>';
+    card.querySelector(".start-product-name").textContent = p.title;
+    card.querySelector(".dropdown-price").textContent = "€ " + formatPrice(p.price);
+    card.addEventListener("click", () => {
+      filteredProducts = [p];
+      openConfigurator(0);
+    });
+    grid.appendChild(card);
+  });
 }
 
 function showCategoryStart(){
-  selectedCategory="";
+  currentCategory = "";
+  searchKeyword = "";
+  const searchInput = document.getElementById("catalog-search-input");
+  if(searchInput) searchInput.value = "";
+  
   categoryStart.classList.remove("hidden");
   configuratorScreen.classList.add("hidden");
   renderStartCategories();
-  window.scrollTo({top:0,behavior:"smooth"});
-}
-
-function showProductsForCategory(cat){
-  selectedCategory=cat||"";
-  filteredProducts=products.filter(p=>!selectedCategory||p.category===selectedCategory);
-  document.getElementById("category-filter").value=selectedCategory;
-  buildDropdown();
-  resetConfiguratorPreview();
-
-  categoryStart.classList.remove("hidden");
-  configuratorScreen.classList.add("hidden");
-  startCategoryGrid.classList.add("hidden");
-  startProductArea.classList.remove("hidden");
-  startProductTitle.textContent=selectedCategory?selectedCategory:"Alle Produkte";
-  startProductGrid.innerHTML="";
-
-  if(!filteredProducts.length){
-    startProductGrid.innerHTML='<div class="notice">In dieser Kategorie gibt es noch keine aktiven Produkte.</div>';
-    return;
-  }
-
-  filteredProducts.forEach((p,idx)=>{
-    const card=document.createElement("button");
-    card.className="start-product-card";
-    card.type="button";
-    card.innerHTML='<div class="start-product-img"><img src="'+(p.imgFront||"")+'" alt=""></div><div class="start-product-name"></div><div class="sub"></div><div class="dropdown-price"></div>';
-    card.querySelector(".start-product-name").textContent=p.title;
-    card.querySelector(".sub").textContent=(p.category||"Ohne Kategorie")+(p.desc?" · "+p.desc:"");
-    card.querySelector(".dropdown-price").textContent="€ "+formatPrice(p.price);
-    card.addEventListener("click",()=>openConfigurator(idx));
-    startProductGrid.appendChild(card);
-  });
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
@@ -999,6 +1100,209 @@ const {error}=await supabaseClient.from("requests").insert({
     alert("Speichern fehlgeschlagen: "+error.message+"\\n\\nBitte prüfe, ob die Supabase Tabelle requests angelegt wurde.");
   }finally{
     sendBtn.disabled=false;sendBtn.textContent="Anfrage senden";
+  }
+}
+
+async function printApprovalSheet() {
+  const prod = filteredProducts[currentProductIndex];
+  if (!prod) {
+    alert("Bitte zuerst ein Produkt wählen.");
+    return;
+  }
+
+  const printBtn = document.getElementById("print-sheet-btn");
+  const oldText = printBtn.textContent;
+  printBtn.textContent = "⌛ Generiere Freigabebogen...";
+  printBtn.disabled = true;
+
+  try {
+    const quantities = getQuantities();
+    const tempItem = {
+      title: prod.title,
+      price: prod.price,
+      desc: prod.desc || "",
+      category: prod.category || "",
+      quantities,
+      productImages: {
+        front: prod.imgFront,
+        back: prod.imgBack,
+        leftSleeve: prod.imgLeftSleeve,
+        rightSleeve: prod.imgRightSleeve
+      },
+      designs: cloneState(designState)
+    };
+
+    const SIDES = ["front", "back", "leftSleeve", "rightSleeve"];
+    const sideLabels = {
+      front: "Vorderansicht",
+      back: "Rückansicht",
+      leftSleeve: "Linker Ärmel",
+      rightSleeve: "Rechter Ärmel"
+    };
+
+    const imagesHtml = [];
+    for (const side of SIDES) {
+      const hasImage = tempItem.productImages[side];
+      
+      if (!hasImage) continue;
+
+      try {
+        const blob = await createSideBlob(tempItem, side);
+        const url = URL.createObjectURL(blob);
+        
+        imagesHtml.push(`
+          <div class="print-image-card">
+            <h4>${sideLabels[side]}</h4>
+            <img src="${url}" alt="${sideLabels[side]}">
+          </div>
+        `);
+      } catch (e) {
+        console.error("Error creating side blob for printing", side, e);
+      }
+    }
+
+    const pricing = calculatePricing([tempItem]);
+    const qtyTableRows = tempItem.quantities.map(q => `
+      <tr>
+        <td><strong>Größe ${q.size}</strong></td>
+        <td>${q.qty} Stück</td>
+      </tr>
+    `).join("");
+
+    const printArea = document.getElementById("print-approval-sheet");
+    printArea.innerHTML = `
+      <div class="print-header">
+        <h1>PROTEX Freigabebogen</h1>
+        <span>Datum: ${new Date().toLocaleDateString("de-DE")}</span>
+      </div>
+      
+      <div style="margin-bottom: 20px; font-size: 15px;">
+        <div><strong>Produkt:</strong> ${prod.title}</div>
+        <div><strong>Kategorie:</strong> ${prod.category || "Ohne Kategorie"}</div>
+        <div><strong>Basispreis:</strong> € ${formatPrice(prod.price)} / Stück</div>
+      </div>
+
+      <div class="print-grid">
+        ${imagesHtml.join("")}
+      </div>
+
+      <div class="print-details">
+        <h3>Mengen & Preise</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Details</th>
+              <th>Wert</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${qtyTableRows}
+            <tr>
+              <td>Gesamtmenge</td>
+              <td><strong>${pricing.totalQty} Stück</strong></td>
+            </tr>
+            <tr>
+              <td>Druckpositionen</td>
+              <td>${pricing.totalPrintPositions} Position(en)</td>
+            </tr>
+            <tr>
+              <td>Druckkosten (Gesamt)</td>
+              <td>€ ${formatPrice(pricing.printCostAmount)}</td>
+            </tr>
+            ${pricing.quantityDiscountRate > 0 ? `
+              <tr>
+                <td>Mengenrabatt (${pricing.quantityDiscountRate}%)</td>
+                <td>-€ ${formatPrice(pricing.quantityDiscountAmount)}</td>
+              </tr>
+            ` : ""}
+            <tr style="font-weight: bold; font-size: 15px; background: #e2e8f0;">
+              <td>Endpreis (Gesamt, inkl. MwSt.)</td>
+              <td>€ ${formatPrice(pricing.total)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="print-signature-row">
+        <div class="print-signature-box">
+          Datum, Unterschrift Mitarbeiter
+        </div>
+        <div class="print-signature-box">
+          Datum, Freigabe Kunde
+        </div>
+      </div>
+    `;
+
+    window.print();
+
+  } catch (err) {
+    alert("Druckerstellung fehlgeschlagen: " + err.message);
+  } finally {
+    printBtn.textContent = oldText;
+    printBtn.disabled = false;
+  }
+}
+
+async function sendOrderToParent() {
+  const prod = filteredProducts[currentProductIndex];
+  if (!prod) {
+    alert("Bitte zuerst ein Produkt wählen.");
+    return;
+  }
+
+  const orderBtn = document.getElementById("create-portal-order-btn");
+  const oldText = orderBtn.textContent;
+  orderBtn.textContent = "⌛ Übertrage Daten...";
+  orderBtn.disabled = true;
+
+  try {
+    const quantities = getQuantities();
+    const tempItem = {
+      title: prod.title,
+      price: prod.price,
+      desc: prod.desc || "",
+      category: prod.category || "",
+      quantities,
+      productImages: {
+        front: prod.imgFront,
+        back: prod.imgBack,
+        leftSleeve: prod.imgLeftSleeve,
+        rightSleeve: prod.imgRightSleeve
+      },
+      designs: cloneState(designState)
+    };
+
+    const pricing = calculatePricing([tempItem]);
+
+    const previews = {};
+    const SIDES = ["front", "back", "leftSleeve", "rightSleeve"];
+    for (const side of SIDES) {
+      if (!tempItem.productImages[side]) continue;
+      try {
+        const blob = await createSideBlob(tempItem, side);
+        previews[side] = await blobToBase64(blob);
+      } catch (e) {
+        console.error("Error creating preview for portal", side, e);
+      }
+    }
+
+    window.parent.postMessage({
+      type: "CREATE_PORTAL_ORDER",
+      data: {
+        productTitle: prod.title,
+        price: prod.price,
+        quantities: tempItem.quantities,
+        pricing: pricing,
+        previews: previews,
+        designSummary: designSummary(tempItem.designs)
+      }
+    }, "*");
+
+  } catch (err) {
+    alert("Datenübertragung fehlgeschlagen: " + err.message);
+  } finally {
+    orderBtn.textContent = oldText;
+    orderBtn.disabled = false;
   }
 }
 
