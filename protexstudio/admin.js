@@ -13,7 +13,53 @@ function renderCategorySelect(){const sel=document.getElementById("p-category");
 function renderCategoryList(){const list=document.getElementById("category-list");list.innerHTML="";if(!categories.length){list.innerHTML='<div class="sub">Noch keine Kategorien.</div>';return}categories.forEach(c=>{const chip=document.createElement("span");chip.className="category-chip";chip.innerHTML="<span></span><button type='button'>×</button>";chip.querySelector("span").textContent=c;chip.querySelector("button").addEventListener("click",()=>removeCategory(c));list.appendChild(chip)})}
 function addCategory(){const input=document.getElementById("new-category");const val=input.value.trim();if(!val)return;if(!categories.includes(val))categories.push(val);categories.sort();input.value="";renderCategorySelect();document.getElementById("p-category").value=val;renderCategoryList()}
 async function removeCategory(cat){if(products.some(p=>p.category===cat)){alert("Diese Kategorie wird noch von Produkten verwendet. Bitte Produkte vorher ändern.");return}categories=categories.filter(c=>c!==cat);renderCategorySelect();renderCategoryList()}
-function renderProducts(){const list=document.getElementById("product-list"),q=document.getElementById("search").value.toLowerCase();list.innerHTML="";const filtered=products.filter(p=>!q||[p.title,p.desc,p.category].join(" ").toLowerCase().includes(q));if(!filtered.length){list.innerHTML='<div class="notice">Keine Produkte gefunden.</div>';return}filtered.forEach(p=>{const row=document.createElement("div");row.className="product-admin-item";row.innerHTML='<img src="'+(p.imgFront||"")+'" alt=""><div><strong></strong><div class="sub"></div><div class="product-actions"></div></div>';row.querySelector("strong").textContent=p.title;row.querySelector(".sub").textContent="€ "+formatPrice(p.price)+" · "+(p.category||"Ohne Kategorie")+" · "+(p.active?"aktiv":"inaktiv");const actions=row.querySelector(".product-actions");actions.appendChild(actionBtn("Bearbeiten","edit-btn",()=>editProduct(p)));actions.appendChild(actionBtn("Duplizieren","copy-btn",()=>duplicateProduct(p)));actions.appendChild(actionBtn("Löschen","delete-btn",()=>deleteProduct(p.id)));list.appendChild(row)})}
+function renderProducts(){
+  const list=document.getElementById("product-list"),q=document.getElementById("search").value.toLowerCase();
+  list.innerHTML="";
+  const filtered=products.filter(p=>!q||[p.title,p.desc,p.category].join(" ").toLowerCase().includes(q));
+  if(!filtered.length){
+    list.innerHTML='<div class="notice">Keine Produkte gefunden.</div>';
+    return;
+  }
+
+  const filteredCats=[...new Set(filtered.map(p=>p.category).filter(Boolean))].sort();
+
+  filteredCats.forEach(cat=>{
+    const catProducts=filtered.filter(p=>p.category===cat);
+    if(!catProducts.length)return;
+
+    const catHeader=document.createElement("div");
+    catHeader.className="admin-category-header";
+    catHeader.textContent=cat;
+    list.appendChild(catHeader);
+
+    catProducts.forEach(p=>list.appendChild(createProductRow(p)));
+  });
+
+  const uncategorized=filtered.filter(p=>!p.category);
+  if(uncategorized.length){
+    const catHeader=document.createElement("div");
+    catHeader.className="admin-category-header";
+    catHeader.textContent="Ohne Kategorie";
+    list.appendChild(catHeader);
+
+    uncategorized.forEach(p=>list.appendChild(createProductRow(p)));
+  }
+}
+
+function createProductRow(p){
+  const row=document.createElement("div");
+  row.className="product-admin-item";
+  row.innerHTML='<img src="'+(p.imgFront||"")+'" alt=""><div><strong></strong><div class="sub"></div><div class="product-actions"></div></div>';
+  row.querySelector("strong").textContent=p.title;
+  row.querySelector(".sub").textContent="€ "+formatPrice(p.price)+" · "+(p.active?"aktiv":"inaktiv");
+  const actions=row.querySelector(".product-actions");
+  actions.appendChild(actionBtn("Bearbeiten","edit-btn",()=>editProduct(p)));
+  actions.appendChild(actionBtn("Duplizieren","copy-btn",()=>duplicateProduct(p)));
+  actions.appendChild(actionBtn("Löschen","delete-btn",()=>deleteProduct(p.id)));
+  return row;
+}
+
 function actionBtn(text,cls,fn){const b=document.createElement("button");b.className=cls;b.type="button";b.textContent=text;b.addEventListener("click",fn);return b}
 function editProduct(p){document.getElementById("form-title").textContent="Produkt bearbeiten";document.getElementById("edit-id").value=p.id;document.getElementById("p-title").value=p.title;document.getElementById("p-category").value=p.category;document.getElementById("p-desc").value=p.desc;document.getElementById("p-price").value=p.price;document.getElementById("p-sizes").value=(p.sizes||[]).join(",");document.getElementById("p-active").checked=p.active;window.scrollTo({top:0,behavior:"smooth"})}
 function resetForm(){document.getElementById("form-title").textContent="Produkt anlegen";document.getElementById("edit-id").value="";["p-title","p-desc","p-price"].forEach(id=>document.getElementById(id).value="");document.getElementById("p-category").value="";document.getElementById("p-sizes").value="S,M,L,XL,XXL";document.getElementById("p-front").value="";document.getElementById("p-back").value="";document.getElementById("p-active").checked=true}

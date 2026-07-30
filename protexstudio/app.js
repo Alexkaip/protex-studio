@@ -1,13 +1,192 @@
 let supabaseClient;
 let products = [];
+let categories = [];
 let filteredProducts = [];
 let currentProductIndex = 0;
 let selectedCategory = "";
 let currentSide = "front";
 let requestItems = [];
 let selectedItemId = null;
-let designState = { front: [], back: [] };
+let designState = createEmptyDesignState();
 let dragState = null;
+
+const SIDES = ["front", "back", "leftSleeve", "rightSleeve"];
+const SIDE_LABELS = {front:"Vorderseite", back:"Rückseite", leftSleeve:"Linker Ärmel", rightSleeve:"Rechter Ärmel"};
+function createEmptyDesignState(){return {front:[],back:[],leftSleeve:[],rightSleeve:[]};}
+function getSideLabel(side){return SIDE_LABELS[side]||side;}
+function getSideImage(product,side){
+  if(!product)return "";
+  if(side==="back")return product.imgBack||"";
+  if(side==="leftSleeve")return product.imgLeftSleeve||"";
+  if(side==="rightSleeve")return product.imgRightSleeve||"";
+  return product.imgFront||"";
+}
+function sideHasImage(product,side){return !!getSideImage(product,side);}
+
+
+const DEFAULT_COUPON_CODES = [
+  {code:"PROTEX10", discount_percent:10, active:true},
+  {code:"VIP20", discount_percent:20, active:true},
+  {code:"VEREIN30", discount_percent:30, active:true},
+  {code:"SPONSOR40", discount_percent:40, active:true}
+];
+let couponCodes = [...DEFAULT_COUPON_CODES];
+
+function normalizeCouponCodes(value){
+  const rows=Array.isArray(value)?value:DEFAULT_COUPON_CODES;
+  return rows.map(r=>({
+    code:String(r.code||"").trim().toUpperCase(),
+    discount_percent:Number(String(r.discount_percent ?? r.discount ?? r.percent ?? 0).replace(',','.'))||0,
+    active:r.active!==false
+  })).filter(r=>r.code && r.discount_percent>0).sort((a,b)=>a.code.localeCompare(b.code));
+}
+
+const DEFAULT_QUANTITY_DISCOUNTS = [
+  {min_qty:10, discount_percent:5},
+  {min_qty:25, discount_percent:10},
+  {min_qty:50, discount_percent:15},
+  {min_qty:100, discount_percent:20}
+];
+let quantityDiscountTiers = [...DEFAULT_QUANTITY_DISCOUNTS];
+const DEFAULT_PRINT_COST_PER_POSITION = 5;
+let printCostPerPosition = DEFAULT_PRINT_COST_PER_POSITION;
+
+function normalizePrintCost(value){
+  if(value && typeof value === 'object') value = value.price_per_print ?? value.price ?? value.amount ?? value.value;
+  const n = Number(String(value ?? DEFAULT_PRINT_COST_PER_POSITION).replace(',', '.'));
+  return Number.isFinite(n) && n >= 0 ? n : DEFAULT_PRINT_COST_PER_POSITION;
+}
+
+function normalizeDiscountTiers(value){
+  const rows=Array.isArray(value)?value:DEFAULT_QUANTITY_DISCOUNTS;
+  const normalized=rows.map(r=>({
+    min_qty:parseInt(r.min_qty ?? r.minQty ?? r.qty ?? 0,10)||0,
+    discount_percent:Number(String(r.discount_percent ?? r.discount ?? r.percent ?? 0).replace(',','.'))||0
+  })).filter(r=>r.min_qty>0 && r.discount_percent>0).sort((a,b)=>a.min_qty-b.min_qty);
+
+  // Wichtig: Wenn in Supabase versehentlich eine leere Rabattliste gespeichert ist,
+  // sollen die Standard-Mengenrabatte trotzdem wieder greifen.
+  return normalized.length ? normalized : [...DEFAULT_QUANTITY_DISCOUNTS];
+}
+
+async function loadDiscountSettings(){
+  try{
+    const {data,error}=await supabaseClient.from('settings').select('key,value').in('key',['quantity_discounts','coupon_codes','print_cost_per_position']);
+    if(error)throw error;
+    const rows=data||[];
+    const quantityRow=rows.find(r=>r.key==='quantity_discounts');
+    const couponRow=rows.find(r=>r.key==='coupon_codes');
+    const printCostRow=rows.find(r=>r.key==='print_cost_per_position');
+    quantityDiscountTiers=normalizeDiscountTiers(quantityRow?.value);
+    couponCodes=normalizeCouponCodes(couponRow?.value);
+    printCostPerPosition=normalizePrintCost(printCostRow?.value);
+  }catch(err){
+    console.warn('Rabatte konnten nicht aus Supabase geladen werden:',err.message);
+    quantityDiscountTiers=[...DEFAULT_QUANTITY_DISCOUNTS];
+    couponCodes=[...DEFAULT_COUPON_CODES];
+    printCostPerPosition=DEFAULT_PRINT_COST_PER_POSITION;
+  }
+}
+
+async function recordVisit(){
+  try{
+    const payload={
+     
+      path:window.location.pathname||'/',
+      user_agent:(navigator.userAgent||'').slice(0,300)
+    };
+    await supabaseClient.from('visits').insert(payload);
+  }catch(err){
+    console.warn('Besucherzähler konnte nicht geschrieben werden:',err.message);
+  }
+}
+
+function getQuantityDiscountRate(qty){
+  let rate=0;
+  // WICHTIG: Wenn aus Supabase keine Rabattstaffel geladen wird, nehmen wir die Standard-Staffel.
+  // Dadurch wird der Mengenrabatt trotzdem gerechnet (z.B. ab 10 Stk. 5%).
+  const tiers = (quantityDiscountTiers && quantityDiscountTiers.length) ? quantityDiscountTiers : DEFAULT_QUANTITY_DISCOUNTS;
+  tiers.forEach(t=>{ if(qty>=t.min_qty) rate=t.discount_percent; });
+  return rate;
+}
+
+function renderDiscountTiers(){
+  return '';
+}
+
+function getVoucherInfo(){
+  const input=document.getElementById("voucher-code");
+  const code=input ? input.value.trim().toUpperCase() : "";
+  if(!code) return {code:"",rate:0,valid:false,message:""};
+  const found=couponCodes.find(c=>c.active!==false && c.code===code);
+  const rate=found?found.discount_percent:0;
+  return {code,rate,valid:rate>0,message:rate>0?("✓ Gutscheincode gültig (-"+rate+"%)"):("✗ Gutscheincode ungültig")};
+}
+
+function countPrintPositions(item){
+  const designs=item?.designs||createEmptyDesignState();
+  return SIDES.reduce((sum,side)=>sum+(designs[side]||[]).filter(d=>d.type==="text" || d.type==="image").length,0);
+}
+
+function itemQuantity(item){
+  return (item?.quantities||[]).reduce((s,q)=>s+(parseInt(q.qty,10)||0),0);
+}
+
+function calculatePricing(items){
+  const totalQty=(items||[]).reduce((sum,item)=>sum+itemQuantity(item),0);
+  const productSubtotal=(items||[]).reduce((sum,item)=>{
+    const qty=itemQuantity(item);
+    const price=Number(String(item.price||0).replace(",","."))||0;
+    return sum + qty * price;
+  },0);
+  const totalPrintPositions=(items||[]).reduce((sum,item)=>sum+countPrintPositions(item),0);
+  const printCostAmount=(items||[]).reduce((sum,item)=>sum + itemQuantity(item) * countPrintPositions(item) * printCostPerPosition,0);
+  const subtotal=productSubtotal + printCostAmount;
+  const quantityDiscountRate=getQuantityDiscountRate(totalQty);
+  const quantityDiscountAmount=subtotal*quantityDiscountRate/100;
+  const afterQuantity=subtotal-quantityDiscountAmount;
+  const voucher=getVoucherInfo();
+  const voucherDiscountRate=voucher.valid ? voucher.rate : 0;
+  const voucherDiscountAmount=afterQuantity*voucherDiscountRate/100;
+  const total=afterQuantity-voucherDiscountAmount;
+  return {totalQty,productSubtotal,totalPrintPositions,printCostPerPosition,printCostAmount,subtotal,quantityDiscountRate,quantityDiscountAmount,afterQuantity,voucherCode:voucher.code,voucherValid:voucher.valid,voucherDiscountRate,voucherDiscountAmount,total};
+}
+
+function renderPricingHtml(pricing,title){
+  const quantityDiscountLine = pricing.quantityDiscountRate>0
+    ? '<div>Mengenrabatt: <strong>'+pricing.quantityDiscountRate+'%</strong> (-€ '+formatPrice(pricing.quantityDiscountAmount)+')</div>'
+    : '';
+  const voucherDiscountLine = pricing.voucherDiscountRate>0
+    ? '<div>Gutscheincode-Rabatt: <strong>'+pricing.voucherCode+'</strong> (-'+pricing.voucherDiscountRate+'% / -€ '+formatPrice(pricing.voucherDiscountAmount)+')</div>'
+    : '';
+  return '<div class="pricing-title">'+title+'</div>'+
+    '<div>Gesamtmenge: <strong>'+pricing.totalQty+' Stück</strong></div>'+
+    '<div>Produktpreis: <strong>€ '+formatPrice(pricing.productSubtotal||0)+'</strong></div>'+
+    '<div>Druckkosten: <strong>€ '+formatPrice(pricing.printCostAmount||0)+'</strong> ('+(pricing.totalPrintPositions||0)+' Druck(e) × € '+formatPrice(pricing.printCostPerPosition||0)+' × Stückzahl)</div>'+
+    '<div>Warenwert: <strong>€ '+formatPrice(pricing.subtotal)+'</strong></div>'+
+    quantityDiscountLine+
+    voucherDiscountLine+
+    '<div>Zwischensumme: <strong>€ '+formatPrice(pricing.afterQuantity)+'</strong></div>'+
+    '<div class="pricing-final">Endpreis: € '+formatPrice(pricing.total)+'</div>';
+}
+
+function renderActiveDiscountHtml(pricing){
+  let html = '<div class="pricing-title">Aktiver Rabatt</div>';
+  if(pricing.quantityDiscountRate>0){
+    html += '<div>Mengenrabatt: <strong>'+pricing.quantityDiscountRate+'%</strong> (-€ '+formatPrice(pricing.quantityDiscountAmount)+')</div>';
+  }
+  if(pricing.voucherDiscountRate>0){
+    html += '<div>Gutscheincode-Rabatt: <strong>'+pricing.voucherCode+'</strong> (-'+pricing.voucherDiscountRate+'% / -€ '+formatPrice(pricing.voucherDiscountAmount)+')</div>';
+  }
+  html += '<div class="pricing-final">Endpreis mit Rabatt: € '+formatPrice(pricing.total)+'</div>';
+  return html;
+}
+
+function getCurrentPricingItems(){
+  const prod=filteredProducts[currentProductIndex];
+  if(!prod) return [];
+  return [{price:prod.price,quantities:getQuantities(),designs:designState}];
+}
 
 const pImg = document.getElementById("product-img");
 const cTitle = document.getElementById("curr-title");
@@ -29,12 +208,19 @@ document.addEventListener("DOMContentLoaded", init);
 
 async function init(){
   bindEvents();
+
   try{
     supabaseClient = getSupabaseClient();
+
+    await recordVisit();
+
+    await loadDiscountSettings();
     await loadProducts();
+    await loadCategories();
   }catch(err){
     showWarning(err.message);
   }
+
   setupCanvasEvents();
 }
 
@@ -49,18 +235,30 @@ function bindEvents(){
   dropdownTrigger.addEventListener("click",e=>{dropdown.classList.toggle("open");e.stopPropagation();});
   window.addEventListener("click",()=>dropdown.classList.remove("open"));
   document.getElementById("category-filter").addEventListener("change",applyCategoryFilter);
-  const backBtn = document.getElementById("start-back-btn");
-  if(backBtn) backBtn.addEventListener("click",showCategoryStart);
-  document.getElementById("back-to-products-btn").addEventListener("click",showCategoryStart);
+  document.getElementById("start-back-btn").addEventListener("click",showCategoryStart);
+  document.getElementById("back-to-products-btn").addEventListener("click",()=>showProductsForCategory(selectedCategory));
   document.getElementById("logo-loader").addEventListener("change",handleLogoUpload);
   document.getElementById("add-text-btn").addEventListener("click",addTextItem);
   document.getElementById("delete-selected-btn").addEventListener("click",deleteSelectedItem);
   document.getElementById("reset-side-btn").addEventListener("click",resetCurrentSide);
+  bindOptional("move-up-btn",()=>moveSelected(0,-1));
+  bindOptional("move-down-btn",()=>moveSelected(0,1));
+  bindOptional("move-left-btn",()=>moveSelected(-1,0));
+  bindOptional("move-right-btn",()=>moveSelected(1,0));
+  bindOptional("size-minus-btn",()=>resizeSelected(-1));
+  bindOptional("size-plus-btn",()=>resizeSelected(1));
+  bindOptional("center-h-btn",centerSelectedHorizontal);
   document.getElementById("add-request-btn").addEventListener("click",addCurrentProductToRequest);
   document.getElementById("download-design-btn").addEventListener("click",downloadAllRequestDesignImages);
   document.getElementById("send-order-btn").addEventListener("click",sendOrder);
+  const voucherInput=document.getElementById("voucher-code");
+  if(voucherInput){voucherInput.addEventListener("input",()=>{updateTotal();renderRequestList();});}
+  const voucherBtn=document.getElementById("voucher-check-btn");
+  if(voucherBtn){voucherBtn.addEventListener("click",()=>{updateTotal();renderRequestList();});}
   document.getElementById("front-btn").addEventListener("click",()=>setSide("front"));
   document.getElementById("back-btn").addEventListener("click",()=>setSide("back"));
+  document.getElementById("left-sleeve-btn").addEventListener("click",()=>setSide("leftSleeve"));
+  document.getElementById("right-sleeve-btn").addEventListener("click",()=>setSide("rightSleeve"));
   canvas.addEventListener("click", e=>{
     if(e.target === canvas || e.target === pImg || e.target === layer){
       selectedItemId = null;
@@ -69,18 +267,35 @@ function bindEvents(){
   });
 }
 
+function bindOptional(id,fn){
+  const el=document.getElementById(id);
+  if(el)el.addEventListener("click",fn);
+}
+
 async function loadProducts(){
   dropdownTrigger.textContent="Produkte werden geladen...";
   const {data,error}=await supabaseClient.from("products").select("*").eq("active",true).order("id",{ascending:true});
   if(error)throw error;
   products=(data||[]).map(productFromRow);
+}
+
+async function loadCategories(){
+  try{
+    const {data,error}=await supabaseClient.from("categories").select("*").order("name",{ascending:true});
+    if(error)throw error;
+    categories=(data||[]).map(row=>row.name).filter(Boolean);
+  }catch(err){
+    console.warn("Kategorien-Tabelle konnte nicht geladen werden:",err.message);
+    categories=[];
+  }
   buildCategoryFilter();
   renderStartCategories();
   resetConfiguratorPreview();
 }
 
 function getCategories(){
-  return [...new Set(products.map(p=>p.category).filter(Boolean))].sort();
+  const productCats=products.map(p=>p.category).filter(Boolean);
+  return [...new Set([...categories,...productCats])].sort();
 }
 
 function buildCategoryFilter(){
@@ -91,90 +306,35 @@ function buildCategoryFilter(){
 }
 
 function renderStartCategories(){
-  const container = document.getElementById("catalog-container");
-  if (!container) return;
-  container.innerHTML = "";
+  const cats=getCategories();
+  startProductArea.classList.add("hidden");
+  startCategoryGrid.classList.remove("hidden");
+  startCategoryGrid.innerHTML="";
 
   if(!products.length){
-    container.innerHTML = '<div class="notice">Noch keine aktiven Produkte vorhanden.</div>';
+    startCategoryGrid.innerHTML='<div class="notice">Noch keine aktiven Produkte vorhanden.</div>';
     return;
   }
 
-  const cats = getCategories();
+  const allBtn=createCategoryCard("Alle Produkte",products.length,products[0]?.imgFront||"",()=>showProductsForCategory(""));
+  startCategoryGrid.appendChild(allBtn);
 
-  cats.forEach(cat => {
-    const catProducts = products.filter(p => p.category === cat);
-    if (!catProducts.length) return;
-
-    const section = document.createElement("div");
-    section.className = "catalog-section";
-
-    const header = document.createElement("h2");
-    header.className = "catalog-category-title";
-    header.textContent = cat;
-    section.appendChild(header);
-
-    const grid = document.createElement("div");
-    grid.className = "start-product-grid";
-
-    catProducts.forEach(p => {
-      const card = document.createElement("button");
-      card.className = "start-product-card";
-      card.type = "button";
-      card.innerHTML = '<div class="start-product-img"><img src="'+(p.imgFront||"")+'" alt=""></div><div class="start-product-name"></div><div class="sub"></div><div class="dropdown-price"></div>';
-      card.querySelector(".start-product-name").textContent = p.title;
-      card.querySelector(".sub").textContent = p.desc || "";
-      card.querySelector(".dropdown-price").textContent = "€ " + formatPrice(p.price);
-      card.addEventListener("click", () => {
-        selectedCategory = cat;
-        filteredProducts = products.filter(item => item.category === cat);
-        buildDropdown();
-        document.getElementById("category-filter").value = cat;
-        const idx = filteredProducts.findIndex(item => item.id === p.id);
-        openConfigurator(idx);
-      });
-      grid.appendChild(card);
-    });
-
-    section.appendChild(grid);
-    container.appendChild(section);
+  cats.forEach(cat=>{
+    const catProducts=products.filter(p=>p.category===cat);
+    const img=catProducts.find(p=>p.imgFront)?.imgFront||"";
+    startCategoryGrid.appendChild(createCategoryCard(cat,catProducts.length,img,()=>showProductsForCategory(cat)));
   });
+}
 
-  const uncategorized = products.filter(p => !p.category);
-  if (uncategorized.length) {
-    const section = document.createElement("div");
-    section.className = "catalog-section";
-
-    const header = document.createElement("h2");
-    header.className = "catalog-category-title";
-    header.textContent = "Andere Produkte";
-    section.appendChild(header);
-
-    const grid = document.createElement("div");
-    grid.className = "start-product-grid";
-
-    uncategorized.forEach(p => {
-      const card = document.createElement("button");
-      card.className = "start-product-card";
-      card.type = "button";
-      card.innerHTML = '<div class="start-product-img"><img src="'+(p.imgFront||"")+'" alt=""></div><div class="start-product-name"></div><div class="sub"></div><div class="dropdown-price"></div>';
-      card.querySelector(".start-product-name").textContent = p.title;
-      card.querySelector(".sub").textContent = p.desc || "";
-      card.querySelector(".dropdown-price").textContent = "€ " + formatPrice(p.price);
-      card.addEventListener("click", () => {
-        selectedCategory = "";
-        filteredProducts = products.filter(item => !item.category);
-        buildDropdown();
-        document.getElementById("category-filter").value = "";
-        const idx = filteredProducts.findIndex(item => item.id === p.id);
-        openConfigurator(idx);
-      });
-      grid.appendChild(card);
-    });
-
-    section.appendChild(grid);
-    container.appendChild(section);
-  }
+function createCategoryCard(title,count,img,clickHandler){
+  const card=document.createElement("button");
+  card.className="start-category-card";
+  card.type="button";
+  card.innerHTML='<div class="start-category-img">'+(img?'<img src="'+img+'" alt="">':'<span>📦</span>')+'</div><div class="start-category-title"></div><div class="sub"></div>';
+  card.querySelector(".start-category-title").textContent=title;
+  card.querySelector(".sub").textContent=count+" Produkt"+(count===1?"":"e");
+  card.addEventListener("click",clickHandler);
+  return card;
 }
 
 function showCategoryStart(){
@@ -182,6 +342,39 @@ function showCategoryStart(){
   categoryStart.classList.remove("hidden");
   configuratorScreen.classList.add("hidden");
   renderStartCategories();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function showProductsForCategory(cat){
+  selectedCategory=cat||"";
+  filteredProducts=products.filter(p=>!selectedCategory||p.category===selectedCategory);
+  document.getElementById("category-filter").value=selectedCategory;
+  buildDropdown();
+  resetConfiguratorPreview();
+
+  categoryStart.classList.remove("hidden");
+  configuratorScreen.classList.add("hidden");
+  startCategoryGrid.classList.add("hidden");
+  startProductArea.classList.remove("hidden");
+  startProductTitle.textContent=selectedCategory?selectedCategory:"Alle Produkte";
+  startProductGrid.innerHTML="";
+
+  if(!filteredProducts.length){
+    startProductGrid.innerHTML='<div class="notice">In dieser Kategorie gibt es noch keine aktiven Produkte.</div>';
+    return;
+  }
+
+  filteredProducts.forEach((p,idx)=>{
+    const card=document.createElement("button");
+    card.className="start-product-card";
+    card.type="button";
+    card.innerHTML='<div class="start-product-img"><img src="'+(p.imgFront||"")+'" alt=""></div><div class="start-product-name"></div><div class="sub"></div><div class="dropdown-price"></div>';
+    card.querySelector(".start-product-name").textContent=p.title;
+    card.querySelector(".sub").textContent=(p.category||"Ohne Kategorie")+(p.desc?" · "+p.desc:"");
+    card.querySelector(".dropdown-price").textContent="€ "+formatPrice(p.price);
+    card.addEventListener("click",()=>openConfigurator(idx));
+    startProductGrid.appendChild(card);
+  });
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
@@ -201,18 +394,11 @@ function resetConfiguratorPreview(){
   cDesc.textContent="Bitte zuerst Kategorie und Produkt auswählen.";
   cPrice.textContent="";
   document.getElementById("size-grid").innerHTML="";
-  document.getElementById("total-box").textContent="Gesamt: 0 Stück · € 0.00";
+  const totalBox=document.getElementById("total-box"); if(totalBox){totalBox.classList.add("hidden"); totalBox.innerHTML="";}
 }
 
 function applyCategoryFilter(){
-  selectedCategory = document.getElementById("category-filter").value;
-  filteredProducts = products.filter(p => !selectedCategory || p.category === selectedCategory);
-  buildDropdown();
-  if (filteredProducts.length) {
-    selectProduct(0);
-  } else {
-    resetConfiguratorPreview();
-  }
+  showProductsForCategory(document.getElementById("category-filter").value);
 }
 
 function buildDropdown(){
@@ -232,7 +418,7 @@ function selectProduct(index){
   currentProductIndex=index;
   const p=filteredProducts[index];
   currentSide="front";
-  designState={front:[],back:[]};
+  designState=createEmptyDesignState();
   selectedItemId=null;
   pImg.src=p.imgFront;
   pImg.onload=()=>renderDesignItems();
@@ -273,25 +459,52 @@ function getQuantities(){
 }
 
 function updateTotal(){
+  const box=document.getElementById("total-box");
   const prod=filteredProducts[currentProductIndex];
-  const qty=getQuantities().reduce((s,x)=>s+x.qty,0);
-  const total=qty*(Number(String(prod?.price||0).replace(",","."))||0);
-  document.getElementById("total-box").textContent="Gesamt: "+qty+" Stück · € "+formatPrice(total);
+  const pricing=calculatePricing(getCurrentPricingItems());
+  if(box){
+    // Kostenbox immer anzeigen sobald ein Produkt mit Menge gewählt wurde.
+    // Rabatt-Zeilen kommen nur in renderPricingHtml, wenn wirklich ein Rabatt aktiv ist.
+    if(!prod || (pricing.totalQty||0)<=0){
+      box.classList.add("hidden");
+      box.innerHTML="";
+    }else{
+      box.classList.remove("hidden");
+      box.innerHTML=renderPricingHtml(pricing,"Aktuelles Produkt");
+    }
+  }
+  const status=document.getElementById("voucher-status");
+  const voucher=getVoucherInfo();
+  if(status){
+    status.textContent=voucher.message;
+    status.className="sub "+(voucher.code?(voucher.valid?"voucher-ok":"voucher-bad"):"");
+  }
 }
 
 function setSide(side){
   const p=filteredProducts[currentProductIndex];
   if(!p)return;
+
+  if(!sideHasImage(p,side)){
+    const fallback=SIDES.find(s=>sideHasImage(p,s))||"front";
+    side=fallback;
+  }
+
   currentSide=side;
-  if(side==="back"&&p.imgBack)pImg.src=p.imgBack;
-  else{currentSide="front";pImg.src=p.imgFront;}
-  document.getElementById("front-btn").classList.toggle("active",currentSide==="front");
-  document.getElementById("back-btn").classList.toggle("active",currentSide==="back");
-  document.getElementById("back-btn").disabled=!p.imgBack;
+  pImg.src=getSideImage(p,currentSide);
+
+  SIDES.forEach(s=>{
+    const btn=document.getElementById(s==="leftSleeve"?"left-sleeve-btn":s==="rightSleeve"?"right-sleeve-btn":s+"-btn");
+    if(btn){
+      btn.classList.toggle("active",currentSide===s);
+      btn.disabled=!sideHasImage(p,s);
+      btn.title=btn.disabled?"Für diese Seite wurde kein Produktbild hinterlegt":"";
+    }
+  });
+
   selectedItemId=null;
   renderDesignItems();
 }
-
 function addDesignItem(item){
   const items=designState[currentSide];
   items.push({
@@ -304,17 +517,31 @@ function addDesignItem(item){
     relX: .38,
     relY: .32,
     relW: item.type==="image" ? .18 : .22,
-    fontSize: 32
+    fontSize: 32,
+    originalName: item.originalName || "",
+    mime: item.mime || "",
+    originalContent: item.originalContent || ""
   });
   selectedItemId=items[items.length-1].id;
   renderDesignItems();
+  updateTotal();
 }
 
 function handleLogoUpload(e){
   const file=e.target.files[0];
   if(!file||!file.type.startsWith("image/"))return;
   const reader=new FileReader();
-  reader.onload=()=>{addDesignItem({type:"image",src:reader.result});e.target.value="";};
+  reader.onload=()=>{
+    const dataUrl=String(reader.result||"");
+    addDesignItem({
+      type:"image",
+      src:dataUrl,
+      originalName:file.name||"grafik",
+      mime:file.type||"image/png",
+      originalContent:dataUrl.split(",")[1]||""
+    });
+    e.target.value="";
+  };
   reader.readAsDataURL(file);
 }
 
@@ -334,6 +561,7 @@ function deleteSelectedItem(){
   designState[currentSide]=designState[currentSide].filter(i=>i.id!==selectedItemId);
   selectedItemId=null;
   renderDesignItems();
+  updateTotal();
 }
 
 function resetCurrentSide(){
@@ -341,6 +569,7 @@ function resetCurrentSide(){
   designState[currentSide]=[];
   selectedItemId=null;
   renderDesignItems();
+  updateTotal();
 }
 
 function renderDesignItems(){
@@ -440,9 +669,38 @@ function endDrag(){dragState=null;}
 
 function getCurrentItems(){return designState[currentSide]||[];}
 
+function getSelectedDesignItem(){
+  if(!selectedItemId)return null;
+  return getCurrentItems().find(i=>i.id===selectedItemId)||null;
+}
+
+function moveSelected(dx,dy){
+  const item=getSelectedDesignItem();
+  if(!item){alert("Bitte zuerst Text oder Logo anklicken.");return;}
+  const rect=pImg.getBoundingClientRect();
+  const step=8;
+  item.relX=Math.max(0,Math.min(.95,item.relX+(dx*step)/(rect.width||800)));
+  item.relY=Math.max(0,Math.min(.95,item.relY+(dy*step)/(rect.height||800)));
+  renderDesignItems();
+}
+
+function resizeSelected(direction){
+  const item=getSelectedDesignItem();
+  if(!item){alert("Bitte zuerst Text oder Logo anklicken.");return;}
+  item.relW=Math.max(.04,Math.min(.9,item.relW+(direction*.015)));
+  if(item.type==="text")item.fontSize=Math.max(10,(item.fontSize||32)+(direction*2));
+  renderDesignItems();
+}
+
+function centerSelectedHorizontal(){
+  const item=getSelectedDesignItem();
+  if(!item){alert("Bitte zuerst Text oder Logo anklicken.");return;}
+  item.relX=Math.max(0,Math.min(.95,.5-(item.relW||.2)/2));
+  renderDesignItems();
+}
+
 function cloneState(obj){return JSON.parse(JSON.stringify(obj));}
 
-function getSideLabel(side){return side==="front"?"Vorderseite":"Rückseite";}
 
 function addCurrentProductToRequest(){
   const prod=filteredProducts[currentProductIndex];
@@ -450,14 +708,17 @@ function addCurrentProductToRequest(){
   const quantities=getQuantities();
   if(!quantities.length&&!confirm("Keine Menge ausgewählt. Trotzdem hinzufügen?"))return;
 
+  const clonedDesigns=cloneState(designState);
   requestItems.push({
     title:prod.title,
     price:prod.price,
     desc:prod.desc||"",
     category:prod.category||"",
     quantities,
-    productImages:{front:prod.imgFront,back:prod.imgBack},
-    designs:cloneState(designState)
+    productImages:{front:prod.imgFront,back:prod.imgBack,leftSleeve:prod.imgLeftSleeve,rightSleeve:prod.imgRightSleeve},
+    designs:clonedDesigns,
+    designTexts:designTextSummary(clonedDesigns),
+    originalFiles:originalFilesFromDesigns(clonedDesigns,prod.title)
   });
   renderRequestList();
 }
@@ -465,9 +726,36 @@ function addCurrentProductToRequest(){
 function removeRequestItem(index){requestItems.splice(index,1);renderRequestList();}
 
 function designSummary(designs){
-  const front=(designs.front||[]).length;
-  const back=(designs.back||[]).length;
-  return "Vorne: "+front+" Element(e), Hinten: "+back+" Element(e)";
+  return SIDES.map(side=>getSideLabel(side)+": "+((designs?.[side]||[]).length)+" Element(e)").join(", ");
+}
+
+function designTextSummary(designs){
+  const out=[];
+  SIDES.forEach(side=>{
+    (designs?.[side]||[]).forEach(d=>{
+      if(d.type==="text" && d.text){
+        out.push(getSideLabel(side)+": "+d.text);
+      }
+    });
+  });
+  return out;
+}
+
+function originalFilesFromDesigns(designs, productTitle){
+  const files=[];
+  SIDES.forEach(side=>{
+    (designs?.[side]||[]).forEach((d,idx)=>{
+      if(d.type==="image" && d.originalContent){
+        files.push({
+          filename:d.originalName||("grafik-"+(idx+1)+".png"),
+          mime:d.mime||"application/octet-stream",
+          content:d.originalContent,
+          used_on:(productTitle||"Produkt")+" - "+getSideLabel(side)
+        });
+      }
+    });
+  });
+  return files;
 }
 
 function renderRequestList(){
@@ -489,10 +777,15 @@ function renderRequestList(){
     btn.addEventListener("click",()=>removeRequestItem(idx));
     row.appendChild(info);row.appendChild(btn);list.appendChild(row);
   });
+  const pricing=document.createElement("div");
+  pricing.className="pricing-summary";
+  pricing.innerHTML=renderPricingHtml(calculatePricing(requestItems),"Anfrage gesamt");
+  list.appendChild(pricing);
 }
 
 function buildMailText(){
   const clientEmail=document.getElementById("client-email").value.trim();
+  const clientPhone=document.getElementById("client-phone")?.value.trim()||"";
   const notes=document.getElementById("client-notes").value.trim();
   let productText="";
   requestItems.forEach((item,index)=>{
@@ -507,14 +800,34 @@ function buildMailText(){
       "- Beschreibung: "+(item.desc||"-")+"\\n"+
       "- Design: "+designSummary(item.designs)+"\\n\\n";
   });
-  return "Hallo!\\n\\nich habe folgende Produkte im Konfigurator zusammengestellt.\\n\\nPRODUKTE / ANFRAGE:\\n"+productText+
-    "KUNDEN-INFOS:\\n- Meine E-Mail: "+clientEmail+"\\n- Anmerkung: "+(notes||"-")+"\\n\\n"+
-    "Die Layoutbilder für Vorder- und Rückseite wurden über das Online-Formular mitgesendet.\\n\\nBitte um Rückmeldung.\\n";
+  const pricing=calculatePricing(requestItems);
+  const rabattText="PREIS / RABATT:\n"+
+    "- Gesamtmenge: "+pricing.totalQty+" Stück\n"+
+    "- Produktpreis: € "+formatPrice(pricing.productSubtotal||0)+"\n"+
+    "- Druckpositionen: "+(pricing.totalPrintPositions||0)+"\n"+
+    "- Druckkosten pro Druck: € "+formatPrice(pricing.printCostPerPosition||0)+"\n"+
+    "- Druckkosten gesamt: € "+formatPrice(pricing.printCostAmount||0)+"\n"+
+    "- Warenwert: € "+formatPrice(pricing.subtotal)+"\n"+
+    (pricing.quantityDiscountRate>0 ? "- Mengenrabatt: "+pricing.quantityDiscountRate+"% (-€ "+formatPrice(pricing.quantityDiscountAmount)+")\n" : "")+
+    "- Zwischensumme: € "+formatPrice(pricing.afterQuantity)+"\n"+
+    "- Gutscheincode: "+(pricing.voucherCode||"-")+"\n"+
+    (pricing.voucherDiscountRate>0 ? "- Gutscheinrabatt: "+pricing.voucherDiscountRate+"% (-€ "+formatPrice(pricing.voucherDiscountAmount)+")\n" : "")+
+    "- Endpreis: € "+formatPrice(pricing.total)+"\n\n";
+  return "Hallo!\n\nich habe folgende Produkte im Konfigurator zusammengestellt.\n\nPRODUKTE / ANFRAGE:\n"+productText+
+    rabattText+
+    "KUNDEN-INFOS:\n- Meine E-Mail: "+clientEmail+"\n- Telefon: "+(clientPhone||"-")+"\n- Anmerkung: "+(notes||"-")+"\n\n"+
+    "Die Layoutbilder für Vorder- und Rückseite wurden über das Online-Formular mitgesendet.\n\nBitte um Rückmeldung.\n";
 }
 
 function createSideBlob(item,side){
   return new Promise((resolve,reject)=>{
-    const imageUrl=side==="back"&&item.productImages.back?item.productImages.back:item.productImages.front;
+    const imageUrl=getSideImage({
+      imgFront:item.productImages.front,
+      imgBack:item.productImages.back,
+      imgLeftSleeve:item.productImages.leftSleeve,
+      imgRightSleeve:item.productImages.rightSleeve
+    },side);
+    if(!imageUrl){reject(new Error("Für "+getSideLabel(side)+" wurde kein Produktbild hinterlegt."));return;}
     const productImage=new Image();
     productImage.crossOrigin="anonymous";
     productImage.onload=function(){
@@ -530,16 +843,13 @@ function createSideBlob(item,side){
 
       const items=item.designs[side]||[];
       let chain=Promise.resolve();
-      items.forEach(d=>{
-        chain=chain.then(()=>drawDesign(ctx,canvasExport,d));
-      });
+      items.forEach(d=>{chain=chain.then(()=>drawDesign(ctx,canvasExport,d));});
       chain.then(()=>canvasExport.toBlob(blob=>blob?resolve(blob):reject(new Error("Layout konnte nicht erstellt werden.")),"image/jpeg",.86));
     };
     productImage.onerror=()=>reject(new Error("Produktbild konnte nicht geladen werden."));
     productImage.src=imageUrl;
   });
 }
-
 function drawDesign(ctx,canvas,d){
   return new Promise(resolve=>{
     const x=d.relX*canvas.width;
@@ -569,8 +879,8 @@ async function downloadAllRequestDesignImages(){
   if(!requestItems.length){alert("Bitte zuerst ein Produkt zur Anfrage hinzufügen.");return;}
   let fileIndex=1;
   for(const item of requestItems){
-    for(const side of ["front","back"]){
-      if(side==="back" && !item.productImages.back && !(item.designs.back||[]).length) continue;
+    for(const side of SIDES){
+      if(!item.productImages[side] && !(item.designs[side]||[]).length) continue;
       const blob=await createSideBlob(item,side);
       triggerBlobDownload(blob,"layout-"+fileIndex+"-"+slugify(item.title)+"-"+side+".jpg");
       fileIndex++;
@@ -595,43 +905,95 @@ function blobToBase64(blob){
 }
 
 async function sendOrder(){
-  const clientEmail=document.getElementById("client-email").value.trim(),status=document.getElementById("send-status");
+  const clientEmail = document.getElementById("client-email").value.trim();
+  const clientPhone = document.getElementById("client-phone")?.value.trim() || "";
+  const notes = document.getElementById("client-notes").value.trim();
+  const status = document.getElementById("send-status");
   if(!clientEmail){alert("Bitte E-Mail angeben.");return;}
   if(!requestItems.length){alert("Bitte zuerst mindestens ein Produkt hinzufügen.");return;}
   const mailText=buildMailText(),sendBtn=document.getElementById("send-order-btn");
-  sendBtn.disabled=true;sendBtn.textContent="Wird gesendet...";status.textContent="Layouts werden vorbereitet...";
+  sendBtn.disabled=true;sendBtn.textContent="Wird gespeichert...";status.textContent="Layouts werden vorbereitet...";
   try{
-    const attachments=[];
+    const layoutImages=[];
     let fileIndex=1;
     for(const item of requestItems){
-      for(const side of ["front","back"]){
+      for(const side of SIDES){
         if(fileIndex>5) break;
-        if(side==="back" && !item.productImages.back && !(item.designs.back||[]).length) continue;
+        if(!item.productImages[side] && !(item.designs[side]||[]).length) continue;
         const blob=await createSideBlob(item,side);
-        attachments.push({
+        layoutImages.push({
           filename:"layout-"+fileIndex+"-"+slugify(item.title)+"-"+side+".jpg",
+          side,
+          product:item.title,
           content:await blobToBase64(blob)
         });
         fileIndex++;
       }
       if(fileIndex>5) break;
     }
-    status.textContent="Anfrage wird über Vercel gesendet...";
-    const response=await fetch("/api/send-order",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({clientEmail,mailText,attachments})
+
+    const uploadedFiles=[];
+    const seenUploads=new Set();
+    function pushOriginalFile(file){
+      if(!file||!file.content)return;
+      const key=(file.filename||"grafik")+":"+String(file.content).slice(0,120);
+      if(seenUploads.has(key))return;
+      seenUploads.add(key);
+      uploadedFiles.push({
+        filename:file.filename||("grafik-"+(uploadedFiles.length+1)),
+        mime:file.mime||"application/octet-stream",
+        content:file.content,
+        used_on:file.used_on||""
+      });
+    }
+    requestItems.forEach(item=>{
+      (item.originalFiles||[]).forEach(pushOriginalFile);
+      originalFilesFromDesigns(item.designs,item.title).forEach(pushOriginalFile);
     });
-    let result={};
-    try{result=await response.json();}catch(_err){}
-    if(!response.ok)throw new Error(result.error||("Vercel Antwort: "+response.status+" "+response.statusText));
-    status.textContent="Danke! Anfrage wurde gesendet.";
-    alert("Anfrage wurde gesendet.");
+
+    status.textContent="Anfrage wird im Admin gespeichert...";
+    const pricing=calculatePricing(requestItems);
+   const cleanItems = requestItems.map(item => ({
+  title: item.title,
+  price: item.price,
+  desc: item.desc || "",
+  category: item.category || "",
+  quantities: item.quantities || [],
+  designTexts: item.designTexts || [],
+  designSummary: designSummary(item.designs),
+  printPositions: countPrintPositions(item),
+  printCostPerPosition: printCostPerPosition,
+  printCostTotal: itemQuantity(item) * countPrintPositions(item) * printCostPerPosition,
+  designs: item.designs || createEmptyDesignState()
+}));
+
+const {error}=await supabaseClient.from("requests").insert({
+  customer_email: clientEmail,
+  phone: clientPhone,
+  note: notes,
+  mail_text: mailText,
+  order_data: {
+    items: cleanItems,
+    total_items: cleanItems.length,
+    uploaded_files: uploadedFiles,
+    pricing: pricing
+  },
+  layout_images: layoutImages,
+  status: "Neu"
+});
+    if(error)throw error;
+
+    status.textContent="Danke! Anfrage wurde gespeichert.";
+    alert("Anfrage wurde gespeichert. Wir melden uns ehestmöglich.");
+    requestItems=[];
+    renderRequestList();
+    document.getElementById("client-notes").value="";
   }catch(error){
     console.error(error);
     status.textContent="Fehler: "+error.message;
-    alert("Direktversand fehlgeschlagen: "+error.message);
+    alert("Speichern fehlgeschlagen: "+error.message+"\\n\\nBitte prüfe, ob die Supabase Tabelle requests angelegt wurde.");
   }finally{
-    sendBtn.disabled=false;sendBtn.textContent="Anfrage direkt senden";
+    sendBtn.disabled=false;sendBtn.textContent="Anfrage senden";
   }
 }
+
