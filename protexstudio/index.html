@@ -36,18 +36,22 @@
     margin-top: 0 !important;
     margin-bottom: 6px !important;
   }
+  .start-product-card {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    height: 100% !important;
+    min-height: 240px !important;
+    box-sizing: border-box !important;
+  }
   .start-product-card .sub {
-    flex-grow: 1 !important;
-    font-size: 0.85rem !important;
-    color: #64748b !important;
-    margin-bottom: 12px !important;
-    line-height: 1.4 !important;
+    display: none !important;
   }
   .start-product-card .dropdown-price {
     font-weight: 700 !important;
     font-size: 1.1rem !important;
     color: #2563eb !important;
-    margin-top: auto !important;
+    margin-top: 10px !important;
   }
 </style>
 </head>
@@ -82,69 +86,81 @@
 <section class="card editor-section"><div id="canvas-container"><img id="product-img" alt="Produktbild"><div id="design-layer"></div></div></section>
 <aside class="card">
 <div id="config-warning" class="notice warn hidden"></div>
-<button class="btn btn-light" id="back-to-products-btn" type="button">← Zur Produktübersicht</button><h2>1. Ausgewähltes Produkt</h2>
+<button class="btn btn-light" id="back-to-products-btn" type="button">← Zur Produktübersicht</button>
+
+<!-- Personalisierung an/aus Toggle -->
+<div style="margin: 16px 0; padding: 12px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px;">
+  <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 700; color: #1e40af;">
+    <input type="checkbox" id="personalize-toggle" checked style="width: auto; height: 18px; margin: 0; cursor: pointer;">
+    Produkt mit Logo/Text gestalten
+  </label>
+</div>
+
+<h2>1. Ausgewähltes Produkt</h2>
 <div class="form-group hidden"><label>Kategorie</label><select id="category-filter"><option value="">Alle Kategorien</option></select></div>
 <div class="dropdown hidden" id="product-dropdown"><div class="dropdown-selected" id="dropdown-trigger">Produkte werden geladen...</div><div class="dropdown-options" id="dropdown-options-container"></div></div>
 <div class="product-info-box"><div id="curr-title"><strong>Kein Produkt</strong></div><div id="curr-desc" class="sub">Bitte Produkt auswählen.</div><div id="curr-price" class="dropdown-price"></div></div>
 
-<h2>2. Seite gestalten</h2>
-<div class="side-btn-grid"><button class="switch-btn active" id="front-btn" type="button">Vorderseite</button><button class="switch-btn" id="back-btn" type="button">Rückseite</button><button class="switch-btn" id="left-sleeve-btn" type="button">Linker Ärmel</button><button class="switch-btn" id="right-sleeve-btn" type="button">Rechter Ärmel</button></div>
+<div id="design-section-wrapper">
+  <h2>2. Seite gestalten</h2>
+  <div class="side-btn-grid"><button class="switch-btn active" id="front-btn" type="button">Vorderseite</button><button class="switch-btn" id="back-btn" type="button">Rückseite</button><button class="switch-btn" id="left-sleeve-btn" type="button">Linker Ärmel</button><button class="switch-btn" id="right-sleeve-btn" type="button">Rechter Ärmel</button></div>
 
-<h2>3. Design hinzufügen</h2>
-<div class="tools-box">
-  <div class="form-group"><label>Logo/Grafik hinzufügen</label><input type="file" id="logo-loader" accept="image/*"></div>
-  <div class="form-group"><label>Text eingeben</label><input type="text" id="text-input" placeholder="z.B. Name, Nummer, Sponsor..."></div>
+  <h2>3. Design hinzufügen</h2>
+  <div class="tools-box">
+    <div class="form-group"><label>Logo/Grafik hinzufügen</label><input type="file" id="logo-loader" accept="image/*"></div>
+    <div class="form-group"><label>Text eingeben</label><input type="text" id="text-input" placeholder="z.B. Name, Nummer, Sponsor..."></div>
+    <div class="btn-row">
+      <input type="color" id="text-color" value="#000000" title="Textfarbe">
+      <select id="font-select">
+  <option value="Arial, sans-serif">Arial</option>
+  <option value="'Arial Black', Arial, sans-serif">Arial Black</option>
+  <option value="'Trebuchet MS', sans-serif">Trebuchet</option>
+  <option value="Verdana, sans-serif">Verdana</option>
+  <option value="Georgia, serif">Georgia</option>
+  <option value="'Times New Roman', serif">Times New Roman</option>
+  <option value="'Courier New', monospace">Courier New</option>
+  <option value="'Impact', sans-serif">Impact</option>
+  <option value="'Bebas Neue', sans-serif">Bebas Neue</option>
+  <option value="'Oswald', sans-serif">Oswald</option>
+  <option value="'Montserrat', sans-serif">Montserrat</option>
+  <option value="'Poppins', sans-serif">Poppins</option>
+  <option value="'Roboto', sans-serif">Roboto</option>
+  <option value="'Anton', sans-serif">Anton</option>
+  <option value="'Teko', sans-serif">Teko</option>
+  <option value="'Rajdhani', sans-serif">Rajdhani</option>
+  <option value="'Orbitron', sans-serif">Orbitron</option>
+  <option value="'Permanent Marker', cursive">Permanent Marker</option>
+  <option value="'Pacifico', cursive">Pacifico</option>
+  <option value="'Lobster', cursive">Lobster</option>
+  <option value="'Bangers', cursive">Bangers</option>
+  </select>
+    </div>
+    <button class="btn btn-light" id="add-text-btn" type="button">Text hinzufügen</button>
+  </div>
   <div class="btn-row">
-    <input type="color" id="text-color" value="#000000" title="Textfarbe">
-    <select id="font-select">
-<option value="Arial, sans-serif">Arial</option>
-<option value="'Arial Black', Arial, sans-serif">Arial Black</option>
-<option value="'Trebuchet MS', sans-serif">Trebuchet</option>
-<option value="Verdana, sans-serif">Verdana</option>
-<option value="Georgia, serif">Georgia</option>
-<option value="'Times New Roman', serif">Times New Roman</option>
-<option value="'Courier New', monospace">Courier New</option>
-<option value="'Impact', sans-serif">Impact</option>
-<option value="'Bebas Neue', sans-serif">Bebas Neue</option>
-<option value="'Oswald', sans-serif">Oswald</option>
-<option value="'Montserrat', sans-serif">Montserrat</option>
-<option value="'Poppins', sans-serif">Poppins</option>
-<option value="'Roboto', sans-serif">Roboto</option>
-<option value="'Anton', sans-serif">Anton</option>
-<option value="'Teko', sans-serif">Teko</option>
-<option value="'Rajdhani', sans-serif">Rajdhani</option>
-<option value="'Orbitron', sans-serif">Orbitron</option>
-<option value="'Permanent Marker', cursive">Permanent Marker</option>
-<option value="'Pacifico', cursive">Pacifico</option>
-<option value="'Lobster', cursive">Lobster</option>
-<option value="'Bangers', cursive">Bangers</option>
-</select>
+    <button class="btn btn-secondary" id="delete-selected-btn" type="button">Auswahl löschen</button>
+    <button class="btn btn-secondary" id="reset-side-btn" type="button">Diese Seite leeren</button>
   </div>
-  <button class="btn btn-light" id="add-text-btn" type="button">Text hinzufügen</button>
-</div>
-<div class="btn-row">
-  <button class="btn btn-secondary" id="delete-selected-btn" type="button">Auswahl löschen</button>
-  <button class="btn btn-secondary" id="reset-side-btn" type="button">Diese Seite leeren</button>
-</div>
-<div class="mobile-edit-controls">
-  <div class="sub"><strong>Feinsteuerung für Handy:</strong> zuerst Text/Logo anklicken</div>
-  <div class="move-grid">
-    <button type="button" class="control-btn empty" disabled></button>
-    <button type="button" class="control-btn" id="move-up-btn">⬆️</button>
-    <button type="button" class="control-btn empty" disabled></button>
-    <button type="button" class="control-btn" id="move-left-btn">⬅️</button>
-    <button type="button" class="control-btn" id="center-h-btn">Mitte</button>
-    <button type="button" class="control-btn" id="move-right-btn">➡️</button>
-    <button type="button" class="control-btn empty" disabled></button>
-    <button type="button" class="control-btn" id="move-down-btn">⬇️</button>
-    <button type="button" class="control-btn empty" disabled></button>
+  <div class="mobile-edit-controls">
+    <div class="sub"><strong>Feinsteuerung für Handy:</strong> zuerst Text/Logo anklicken</div>
+    <div class="move-grid">
+      <button type="button" class="control-btn empty" disabled></button>
+      <button type="button" class="control-btn" id="move-up-btn">⬆️</button>
+      <button type="button" class="control-btn empty" disabled></button>
+      <button type="button" class="control-btn" id="move-left-btn">⬅️</button>
+      <button type="button" class="control-btn" id="center-h-btn">Mitte</button>
+      <button type="button" class="control-btn" id="move-right-btn">➡️</button>
+      <button type="button" class="control-btn empty" disabled></button>
+      <button type="button" class="control-btn" id="move-down-btn">⬇️</button>
+      <button type="button" class="control-btn empty" disabled></button>
+    </div>
+    <div class="btn-row compact-controls">
+      <button type="button" class="btn btn-light" id="size-minus-btn">− Kleiner</button>
+      <button type="button" class="btn btn-light" id="size-plus-btn">+ Größer</button>
+    </div>
   </div>
-  <div class="btn-row compact-controls">
-    <button type="button" class="btn btn-light" id="size-minus-btn">− Kleiner</button>
-    <button type="button" class="btn btn-light" id="size-plus-btn">+ Größer</button>
-  </div>
+  <div class="notice">💡 Elemente anklicken, verschieben und unten rechts skalieren. Du kannst Text und mehrere Logos gleichzeitig verwenden.</div>
 </div>
-<div class="notice">💡 Elemente anklicken, verschieben und unten rechts skalieren. Du kannst Text und mehrere Logos gleichzeitig verwenden.</div>
 
 <h2>4. Größen & Menge</h2><div id="size-grid" class="size-grid"></div><div id="total-box" class="total-box hidden"></div>
 <div class="voucher-box">
@@ -158,4 +174,27 @@
 <h2>6. Anfrage senden</h2><div class="form-group"><label>Deine E-Mail-Adresse</label><input type="email" id="client-email" placeholder="name@beispiel.at"></div><div class="form-group"><label>Telefonnummer</label><input type="text" id="client-phone" placeholder="+43 664 1234567"></div><div class="form-group"><label>Anmerkungen</label><textarea id="client-notes" rows="3"></textarea></div><button class="btn" id="send-order-btn" type="button">Anfrage senden</button><div id="send-status" class="sub"></div>
 </aside></section></main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="config.js"></script><script src="supabase-helper.js"></script><script src="app.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const toggle = document.getElementById('personalize-toggle');
+    const designWrapper = document.getElementById('design-section-wrapper');
+    const designLayer = document.getElementById('design-layer');
+    
+    if (toggle && designWrapper && designLayer) {
+      toggle.addEventListener('change', () => {
+        const active = toggle.checked;
+        if (active) {
+          designWrapper.classList.remove('hidden');
+          designLayer.classList.remove('hidden');
+        } else {
+          designWrapper.classList.add('hidden');
+          designLayer.classList.add('hidden');
+          if (typeof resetSide === 'function') {
+            resetSide();
+          }
+        }
+      });
+    }
+  });
+</script>
 </body></html>

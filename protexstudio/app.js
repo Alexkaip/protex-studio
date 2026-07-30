@@ -382,6 +382,11 @@ function openConfigurator(index){
   categoryStart.classList.add("hidden");
   configuratorScreen.classList.remove("hidden");
   selectProduct(index);
+  const toggle = document.getElementById("personalize-toggle");
+  if(toggle){
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event("change"));
+  }
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
