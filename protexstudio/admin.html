@@ -83,9 +83,11 @@
       gap: 10px;
       margin-top: 8px;
       margin-bottom: 0 !important;
+      width: 100%;
     }
     .modal-input-row input {
       flex: 1 !important;
+      width: auto !important;
       margin-bottom: 0 !important;
       height: 38px;
       box-sizing: border-box;
@@ -95,6 +97,19 @@
       height: 38px;
       box-sizing: border-box;
       white-space: nowrap;
+      flex-shrink: 0;
+    }
+    /* Header Button Row Fix */
+    .header-btn-row {
+      display: flex !important;
+      gap: 10px;
+      justify-content: flex-end;
+      align-items: center;
+      flex-wrap: wrap;
+      min-width: 380px;
+    }
+    .header-btn-row .btn {
+      margin: 0 !important;
     }
     /* Kategorien-Überschrift in der Admin-Produktliste */
     .admin-category-header {
@@ -109,7 +124,7 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
       border-left: 4px solid #2563eb;
-      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.03);
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.035);
     }
     .admin-category-header:first-of-type {
       margin-top: 10px;
@@ -122,8 +137,8 @@
     <div class="brand">Protex Online Admin</div>
     <div class="sub">Produkte & Kategorien live pflegen</div>
   </div>
-  <div class="btn-row" style="min-width:380px; justify-content: flex-end;">
-    <button class="btn btn-secondary" id="open-categories-btn" type="button" style="margin-right:10px">📂 Kategorien verwalten</button>
+  <div class="header-btn-row">
+    <button class="btn btn-secondary" id="open-categories-btn" type="button">📂 Kategorien verwalten</button>
     <a class="btn btn-light" href="index.html">Kundenansicht</a>
     <button class="btn btn-secondary" id="logout-btn" type="button">Logout</button>
   </div>
